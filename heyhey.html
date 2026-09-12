@@ -209,6 +209,22 @@
   @media (prefers-reduced-motion:reduce){
     *{animation-duration:.01ms !important; transition-duration:.01ms !important;}
   }
+  /* 深色模式适配 */
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#111418; --surface:#1A1F26; --surface-2:#212833;
+      --border:#2A303A; --border-strong:#39404C;
+      --text:#E7EAEE; --text-2:#A8B0BC; --text-3:#7C8594;
+      --primary:#4C8DFF; --primary-strong:#6FA3FF; --primary-weak:#1E2A44;
+      --accent:#F5B23E; --accent-weak:#3A2F1A;
+      --danger:#F87171; --danger-weak:#3A1F22;
+      --ok:#34D399; --ok-weak:#16302A;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 1px 3px rgba(0,0,0,.35);
+    }
+    .file-card:hover{background:#252C36;}
+    .file-media video{background:#0B0E14;}
+    .toast{background:#2A303A;}
+  }
   [hidden]{display:none !important;}
 </style>
 </head>
@@ -309,13 +325,19 @@ const keyApply = $('keyApply'), keyClear = $('keyClear'), keyStatus = $('keyStat
 
 /* ===== 昵称 ===== */
 const LS_NICK = 'tieba_nick_v1';
+/* localStorage 安全封装：隐私模式/被禁用时静默降级，避免初始化中断导致页面卡在加载 */
+const safeStore = {
+  get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
+  set(k, v){ try{ localStorage.setItem(k, v); }catch(e){} },
+  remove(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
 function loadNick(){
-  let n = localStorage.getItem(LS_NICK);
-  if(!n){ n = '吧友' + Math.floor(1000 + Math.random() * 9000); localStorage.setItem(LS_NICK, n); }
+  let n = safeStore.get(LS_NICK);
+  if(!n){ n = '吧友' + Math.floor(1000 + Math.random() * 9000); safeStore.set(LS_NICK, n); }
   nickInput.value = n;
   return n;
 }
-function saveNick(){ localStorage.setItem(LS_NICK, nickInput.value.trim() || '匿名'); }
+function saveNick(){ safeStore.set(LS_NICK, nickInput.value.trim() || '匿名'); }
 
 /* ===== 工具 ===== */
 function fmtSize(b){
@@ -362,6 +384,8 @@ const LS_KEY = 'tieba_key_v1';
 const KEY_SALT = new TextEncoder().encode('xiao-niao-tieba::v1');
 const ENC_PREFIX = 'enc:';
 let currentKey = null;
+/* Web Crypto 需要安全上下文（https / localhost）。file:// 在部分移动浏览器不可用，提前检测并提示 */
+const CRYPTO_OK = !!(window.crypto && window.crypto.subtle);
 
 function b64FromBytes(buf){
   const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
@@ -388,25 +412,26 @@ async function deriveKeyFromPassword(password){
   );
 }
 async function setPassword(password){
+  if(!CRYPTO_OK) throw new Error('当前环境不支持加密，请通过 https 打开页面');
   currentKey = await deriveKeyFromPassword(password);
   const raw = await crypto.subtle.exportKey('raw', currentKey);
-  localStorage.setItem(LS_KEY, b64FromBytes(raw));
+  safeStore.set(LS_KEY, b64FromBytes(raw));
   updateKeyUI();
   refresh(false);
   return true;
 }
 async function loadSavedKey(){
-  const b64 = localStorage.getItem(LS_KEY);
+  const b64 = safeStore.get(LS_KEY);
   if(!b64) return false;
   try{
     currentKey = await crypto.subtle.importKey('raw', bytesFromB64(b64), {name:'AES-GCM'}, true, ['encrypt','decrypt']);
     updateKeyUI();
     return true;
-  }catch(e){ localStorage.removeItem(LS_KEY); return false; }
+  }catch(e){ safeStore.remove(LS_KEY); return false; }
 }
 function clearKey(){
   currentKey = null;
-  localStorage.removeItem(LS_KEY);
+  safeStore.remove(LS_KEY);
   updateKeyUI();
   refresh(false);
 }
@@ -572,16 +597,18 @@ async function renderAttachment(container, row){
     container.appendChild(noteEl('附件无法解密（房间密钥不正确）'));
   }
 }
-const attachIO = new IntersectionObserver(entries => {
-  entries.forEach(en => {
-    if(en.isIntersecting){
-      const el = en.target;
-      attachIO.unobserve(el);
-      const row = messages[Number(el.dataset.idx)];
-      if(row) renderAttachment(el, row);
-    }
-  });
-}, { rootMargin: '240px' });
+const attachIO = ('IntersectionObserver' in window)
+  ? new IntersectionObserver(entries => {
+      entries.forEach(en => {
+        if(en.isIntersecting){
+          const el = en.target;
+          attachIO.unobserve(el);
+          const row = messages[Number(el.dataset.idx)];
+          if(row) renderAttachment(el, row);
+        }
+      });
+    }, { rootMargin: '240px' })
+  : null;
 
 /* 消息卡片：先骨架，再异步解密填充 */
 async function fillCard(card, row){
@@ -632,7 +659,7 @@ function renderFeed(scrollBottom){
       const d = document.createElement('div'); d.className = 'decrypting'; d.innerHTML = '<span class="spinner"></span>解密附件…';
       files.appendChild(d);
       card.appendChild(files);
-      attachIO.observe(files);
+      if(attachIO) attachIO.observe(files); else renderAttachment(files, row);
     }
     feedEl.appendChild(card);
     fillCard(card, row);
@@ -709,6 +736,10 @@ async function sendMessage(){
   const content = msgInput.value.trim();
   if(!content && pendingFiles.length === 0){
     toast('写点内容或添加一个附件'); return;
+  }
+  if(!CRYPTO_OK){
+    toast('当前环境不支持加密，请通过 https 打开页面', true);
+    return;
   }
   if(!currentKey){
     toast('请先设置房间密钥再发送');
@@ -839,7 +870,12 @@ document.addEventListener('drop', e => {
 /* ===== 初始化 ===== */
 loadNick();
 renderFeed(false);
-loadSavedKey().finally(() => refresh(false));
+if(!CRYPTO_OK){
+  toast('当前环境不支持加密，请通过 https 打开页面', true);
+  refresh(false);
+}else{
+  loadSavedKey().finally(() => refresh(false));
+}
 setInterval(() => { if(document.visibilityState === 'visible' && !busy) refresh(false); }, POLL_MS);
 </script>
 </body>
