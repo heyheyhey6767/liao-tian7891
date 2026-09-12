@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>小贴吧 · 社区留言板</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232563EB'/%3E%3Ctext x='32' y='44' font-size='36' font-family='sans-serif' font-weight='700' fill='%23fff' text-anchor='middle'%3E贴%3C/text%3E%3C/svg%3E">
+<title>小鸟贴吧 · 社区留言板</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232563EB'/%3E%3Ctext x='32' y='44' font-size='36' font-family='sans-serif' font-weight='700' fill='%23fff' text-anchor='middle'%3E鸟%3C/text%3E%3C/svg%3E">
 <link rel="stylesheet" href="https://miaoda.feishu.cn/fonts/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap">
 <style>
   :root{
@@ -14,7 +14,7 @@
     --accent:#F59E0B; --accent-weak:#FEF3E2;
     --text:#1B1F26; --text-2:#69707A; --text-3:#9AA1AB;
     --danger:#DC2626; --danger-weak:#FEF2F2;
-    --ok:#16A34A;
+    --ok:#16A34A; --ok-weak:#EAF7EF;
     --radius:12px; --radius-s:8px;
     --shadow:0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.06);
     --font:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -39,7 +39,7 @@
   .brand-logo{width:28px; height:28px; border-radius:8px; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; flex:none;}
   .brand-logo svg{width:16px; height:16px;}
   .brand .tag{font-size:11px; font-weight:500; color:var(--text-3); background:var(--surface-2); border:1px solid var(--border); padding:2px 8px; border-radius:999px; letter-spacing:0;}
-  .top-actions{display:flex; align-items:center; gap:10px;}
+  .top-actions{display:flex; align-items:center; gap:10px; position:relative;}
   .conn-state{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-2);}
   .conn-state .dot{width:7px; height:7px; border-radius:50%; background:var(--text-3); flex:none;}
   .conn-state.on .dot{background:var(--ok);}
@@ -51,6 +51,34 @@
   }
   .icon-btn:hover{background:var(--surface-2); color:var(--text);}
   .icon-btn svg{width:16px; height:16px;}
+  .icon-btn.key-on{color:var(--ok); border-color:var(--ok); background:var(--ok-weak);}
+
+  /* 密钥面板 */
+  .key-panel{
+    position:absolute; top:calc(100% + 8px); right:0; width:320px; max-width:calc(100vw - 28px);
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    box-shadow:0 12px 32px rgba(16,24,40,.16); padding:14px; z-index:40;
+    animation:fadeIn .18s ease both;
+  }
+  .key-panel h4{font-size:14px; font-weight:700; margin-bottom:4px;}
+  .key-panel .desc{font-size:12px; color:var(--text-3); line-height:1.65; margin-bottom:10px;}
+  .key-panel input{
+    width:100%; padding:10px 12px; border:1px solid var(--border-strong); border-radius:9px;
+    font-size:16px; outline:none; background:var(--surface-2); transition:border-color .15s, background .15s;
+  }
+  .key-panel input:focus{border-color:var(--primary); background:var(--surface);}
+  .key-row{display:flex; gap:8px; margin-top:10px;}
+  .key-btn-act{
+    flex:1; height:40px; border-radius:9px; background:var(--primary); color:#fff;
+    font-size:13.5px; font-weight:700; transition:background .15s;
+  }
+  .key-btn-act:hover{background:var(--primary-strong);}
+  .key-btn-ghost{
+    height:40px; padding:0 14px; border-radius:9px; border:1px solid var(--border); color:var(--text-2); font-size:13px;
+  }
+  .key-btn-ghost:hover{background:var(--surface-2);}
+  .key-status{font-size:12px; color:var(--text-3); margin-top:10px; display:flex; align-items:center; gap:6px; line-height:1.5;}
+  .key-status.on{color:var(--ok);}
 
   /* ===== 消息流 ===== */
   main{flex:1; width:100%; max-width:760px; margin:0 auto; padding:16px 14px 24px; display:flex; flex-direction:column; gap:12px;}
@@ -73,6 +101,8 @@
     padding:2px 8px; border-radius:999px; flex:none;
   }
   .post-content{font-size:14.5px; line-height:1.75; word-break:break-word; white-space:pre-wrap; overflow-wrap:anywhere;}
+  .decrypting{color:var(--text-3); font-size:12.5px; display:flex; align-items:center; gap:7px; padding:4px 0;}
+  .decrypting .spinner{width:13px; height:13px; border-width:2px;}
 
   /* 附件展示 */
   .post-files{display:flex; flex-direction:column; gap:8px; margin-top:10px;}
@@ -96,6 +126,11 @@
   .file-sub{font-size:11.5px; color:var(--text-3); margin-top:1px;}
   .file-go{color:var(--text-3); flex:none;}
   .file-go svg{width:15px; height:15px;}
+  .file-note{
+    font-size:12px; color:var(--text-3); background:var(--surface-2); border:1px dashed var(--border-strong);
+    border-radius:var(--radius-s); padding:10px 12px; display:flex; align-items:center; gap:8px;
+  }
+  .file-note svg{width:15px; height:15px; flex:none; color:var(--text-3);}
 
   /* 空态 / 加载态 */
   .empty{
@@ -149,6 +184,8 @@
   .nick-input:hover{background:var(--surface-2);}
   .nick-input:focus{background:var(--surface-2); border-color:var(--border);}
   .composer-hint{font-size:12px; color:var(--text-3); margin-left:auto;}
+  .enc-hint{font-size:12px; color:var(--ok); display:flex; align-items:center; gap:4px; font-weight:500;}
+  .enc-hint svg{width:12px; height:12px;}
 
   /* Toast */
   .toast{
@@ -172,6 +209,7 @@
   @media (prefers-reduced-motion:reduce){
     *{animation-duration:.01ms !important; transition-duration:.01ms !important;}
   }
+  [hidden]{display:none !important;}
 </style>
 </head>
 <body>
@@ -181,14 +219,27 @@
     <span class="brand-logo">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
     </span>
-    小贴吧
+    小鸟贴吧
     <span class="tag">社区留言板</span>
   </div>
   <div class="top-actions">
     <span id="connState" class="conn-state"><span class="dot"></span><span id="connText">连接中…</span></span>
+    <button id="keyBtn" class="icon-btn" title="设置房间密钥（端到端加密）">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    </button>
     <button id="refreshBtn" class="icon-btn" title="刷新消息">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
     </button>
+    <div id="keyPanel" class="key-panel" hidden>
+      <h4>房间密钥</h4>
+      <div class="desc">消息与附件会用此密钥加密后存储，知道同一密钥的人才能看到内容。密钥不会上传，忘记将无法解密。</div>
+      <input id="keyInput" type="password" placeholder="输入房间密钥（至少 6 位）" autocomplete="off">
+      <div class="key-row">
+        <button id="keyApply" class="key-btn-act">设置密钥</button>
+        <button id="keyClear" class="key-btn-ghost">清除</button>
+      </div>
+      <div id="keyStatus" class="key-status"></div>
+    </div>
   </div>
 </header>
 
@@ -215,6 +266,10 @@
     </div>
     <div class="composer-meta">
       <input id="nickInput" class="nick-input" maxlength="20" placeholder="你的昵称">
+      <span id="encHint" class="enc-hint" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        已加密
+      </span>
       <span class="composer-hint">Enter 发送 · Shift+Enter 换行</span>
     </div>
   </div>
@@ -240,7 +295,7 @@ const AUTH_HEADERS = {
 
 /* ===== 状态 ===== */
 let messages = [];        // 正序（最新在底部）
-let pendingFiles = [];    // 待发送附件 {file, url?, size}
+let pendingFiles = [];    // 待发送附件 {file}
 let busy = false;
 
 /* ===== DOM ===== */
@@ -249,6 +304,8 @@ const feedEl = $('feed'), emptyEl = $('emptyState'), loadingEl = $('loading');
 const connEl = $('connState'), connText = $('connText');
 const fileInput = $('fileInput'), fileBtn = $('fileBtn'), msgInput = $('msgInput'), sendBtn = $('sendBtn');
 const nickInput = $('nickInput'), attachPreview = $('attachPreview'), toastEl = $('toast');
+const keyBtn = $('keyBtn'), keyPanel = $('keyPanel'), keyInput = $('keyInput');
+const keyApply = $('keyApply'), keyClear = $('keyClear'), keyStatus = $('keyStatus'), encHint = $('encHint');
 
 /* ===== 昵称 ===== */
 const LS_NICK = 'tieba_nick_v1';
@@ -300,6 +357,113 @@ function fileKind(mime, name){
   return 'file';
 }
 
+/* ===== 端到端加密（AES-GCM 256 + PBKDF2） ===== */
+const LS_KEY = 'tieba_key_v1';
+const KEY_SALT = new TextEncoder().encode('xiao-niao-tieba::v1');
+const ENC_PREFIX = 'enc:';
+let currentKey = null;
+
+function b64FromBytes(buf){
+  const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  let bin = '';
+  for(let i = 0; i < bytes.length; i += 0x8000){
+    bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  }
+  return btoa(bin);
+}
+function bytesFromB64(b64){
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+async function deriveKeyFromPassword(password){
+  const material = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey(
+    { name:'PBKDF2', salt: KEY_SALT, iterations: 150000, hash:'SHA-256' },
+    material,
+    { name:'AES-GCM', length:256 },
+    true,
+    ['encrypt','decrypt']
+  );
+}
+async function setPassword(password){
+  currentKey = await deriveKeyFromPassword(password);
+  const raw = await crypto.subtle.exportKey('raw', currentKey);
+  localStorage.setItem(LS_KEY, b64FromBytes(raw));
+  updateKeyUI();
+  refresh(false);
+  return true;
+}
+async function loadSavedKey(){
+  const b64 = localStorage.getItem(LS_KEY);
+  if(!b64) return false;
+  try{
+    currentKey = await crypto.subtle.importKey('raw', bytesFromB64(b64), {name:'AES-GCM'}, true, ['encrypt','decrypt']);
+    updateKeyUI();
+    return true;
+  }catch(e){ localStorage.removeItem(LS_KEY); return false; }
+}
+function clearKey(){
+  currentKey = null;
+  localStorage.removeItem(LS_KEY);
+  updateKeyUI();
+  refresh(false);
+}
+function updateKeyUI(){
+  keyBtn.classList.toggle('key-on', !!currentKey);
+  keyBtn.title = currentKey ? '已加密（点击更换房间密钥）' : '设置房间密钥（端到端加密）';
+  keyStatus.textContent = currentKey ? '已加密：所有消息与附件均加密存储' : '未设置密钥：只能查看历史明文消息';
+  keyStatus.classList.toggle('on', !!currentKey);
+  encHint.hidden = !currentKey;
+}
+
+/* 文本加解密：enc:base64(iv):base64(密文) */
+async function encryptText(plain){
+  if(!plain) return '';
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, currentKey, new TextEncoder().encode(plain));
+  return ENC_PREFIX + b64FromBytes(iv) + ':' + b64FromBytes(ct);
+}
+async function decryptText(payload){
+  if(!payload) return { ok:true, text:'' };
+  if(typeof payload !== 'string' || !payload.startsWith(ENC_PREFIX)) return { ok:true, text: payload };
+  if(!currentKey) return { ok:false, needKey:true, text:'' };
+  try{
+    const body = payload.slice(ENC_PREFIX.length);
+    const sep = body.indexOf(':');
+    if(sep < 0) return { ok:true, text: payload };
+    const iv = bytesFromB64(body.slice(0, sep));
+    const ct = bytesFromB64(body.slice(sep + 1));
+    const pt = await crypto.subtle.decrypt({ name:'AES-GCM', iv }, currentKey, ct);
+    return { ok:true, text: new TextDecoder().decode(pt) };
+  }catch(e){
+    return { ok:false, needKey:false, text:'' };
+  }
+}
+
+/* 附件加解密：文件整体加密后上传（密文文件），读取时下载解密 */
+async function encryptFile(file){
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = await file.arrayBuffer();
+  const ct = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, currentKey, data);
+  const out = new Uint8Array(iv.length + ct.byteLength);
+  out.set(iv, 0);
+  out.set(new Uint8Array(ct), iv.length);
+  const base = (file.name || 'file').replace(/\.[^.]+$/, '') || 'file';
+  return { blob: new Blob([out], { type:'application/octet-stream' }), name: base + '.enc' };
+}
+async function decryptFileBlob(url){
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('附件下载失败（' + res.status + '）');
+  const buf = new Uint8Array(await res.arrayBuffer());
+  const iv = buf.subarray(0, 12);
+  const ct = buf.subarray(12);
+  return crypto.subtle.decrypt({ name:'AES-GCM', iv }, currentKey, ct);
+}
+const blobUrls = new Set();
+function revokeAllBlobs(){ blobUrls.forEach(u => URL.revokeObjectURL(u)); blobUrls.clear(); }
+
 /* ===== API ===== */
 async function apiFetch(url, options){
   let res;
@@ -336,32 +500,40 @@ function safeUrl(u){
   if(typeof u !== 'string') return '';
   return /^https?:\/\//i.test(u) ? u : '';
 }
-function renderFiles(container, row){
-  const url = safeUrl(row.file_url); if(!url) return;
-  const name = row.file_name || '附件';
-  const kind = row.file_type ? fileKind(row.file_type, name) : 'file';
-  if(kind === 'image'){
+function noteEl(text){
+  const d = document.createElement('div'); d.className = 'file-note';
+  d.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
+  const s = document.createElement('span'); s.textContent = text;
+  d.appendChild(s);
+  return d;
+}
+
+/* 附件渲染（支持加密文件：下载→解密→blob 预览） */
+function renderDirectFile(container, f){
+  if(f.kind === 'image'){
     const a = document.createElement('a');
-    a.href = url; a.target = '_blank'; a.rel = 'noopener';
+    a.href = f.url; a.target = '_blank'; a.rel = 'noopener';
     const img = document.createElement('img');
-    img.className = 'file-img'; img.src = url; img.alt = name; img.loading = 'lazy';
+    img.className = 'file-img'; img.src = f.url; img.alt = f.name; img.loading = 'lazy';
     a.appendChild(img); container.appendChild(a);
-  } else if(kind === 'video'){
+  } else if(f.kind === 'video'){
     const wrap = document.createElement('div'); wrap.className = 'file-media';
-    const v = document.createElement('video'); v.src = url; v.controls = true; v.preload = 'metadata'; v.setAttribute('playsinline','');
+    const v = document.createElement('video'); v.src = f.url; v.controls = true; v.preload = 'metadata'; v.setAttribute('playsinline','');
     wrap.appendChild(v); container.appendChild(wrap);
-  } else if(kind === 'audio'){
+  } else if(f.kind === 'audio'){
     const wrap = document.createElement('div'); wrap.className = 'file-media';
-    const a = document.createElement('audio'); a.src = url; a.controls = true; a.preload = 'metadata';
+    const a = document.createElement('audio'); a.src = f.url; a.controls = true; a.preload = 'metadata';
     wrap.appendChild(a); container.appendChild(wrap);
   } else {
-    const a = document.createElement('a'); a.className = 'file-card'; a.href = url; a.target = '_blank'; a.rel = 'noopener';
-    const ic = document.createElement('span'); ic.className = 'file-ic' + (['zip','xls','ppt'].includes(extIcon(name)) ? ' type-accent' : '');
-    ic.innerHTML = fileIconSvg(extIcon(name));
+    const a = document.createElement('a'); a.className = 'file-card';
+    a.href = f.url; a.target = '_blank'; a.rel = 'noopener';
+    if(f.dl) a.download = f.dl;
+    const ic = document.createElement('span'); ic.className = 'file-ic' + (['zip','xls','ppt'].includes(extIcon(f.name)) ? ' type-accent' : '');
+    ic.innerHTML = fileIconSvg(extIcon(f.name));
     const info = document.createElement('span'); info.className = 'file-info';
-    const nm = document.createElement('div'); nm.className = 'file-name'; nm.textContent = name;
+    const nm = document.createElement('div'); nm.className = 'file-name'; nm.textContent = f.name;
     const sub = document.createElement('div'); sub.className = 'file-sub';
-    sub.textContent = (row.file_type || '文件').toUpperCase() + (row.file_size ? ' · ' + fmtSize(row.file_size) : '');
+    sub.textContent = (f.type || '文件').toUpperCase() + (f.size ? ' · ' + fmtSize(f.size) : '');
     info.appendChild(nm); info.appendChild(sub);
     const go = document.createElement('span'); go.className = 'file-go';
     go.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7"/><path d="M7 7h10v10"/></svg>';
@@ -369,7 +541,70 @@ function renderFiles(container, row){
     container.appendChild(a);
   }
 }
+async function renderAttachment(container, row){
+  const url = safeUrl(row.file_url);
+  if(!url){ container.innerHTML = ''; return; }
+  const nameRes = await decryptText(row.file_name);
+  const name = nameRes.ok ? (nameRes.text || '附件') : (nameRes.needKey ? '附件（需密钥）' : '附件');
+  const kind = row.file_type ? fileKind(row.file_type, name) : 'file';
+  const lastSeg = decodeURIComponent(url.split('/').pop() || '');
+  const isEnc = /\.enc($|\?)/i.test(lastSeg);
+  if(!isEnc){
+    container.innerHTML = '';
+    renderDirectFile(container, { url, name, kind, type: row.file_type });
+    return;
+  }
+  if(!currentKey){
+    container.innerHTML = '';
+    container.appendChild(noteEl('加密附件：设置房间密钥后可查看'));
+    return;
+  }
+  try{
+    const pt = await decryptFileBlob(url);
+    const type = row.file_type || 'application/octet-stream';
+    const blob = new Blob([pt], { type });
+    const blobUrl = URL.createObjectURL(blob);
+    blobUrls.add(blobUrl);
+    container.innerHTML = '';
+    renderDirectFile(container, { url: blobUrl, name, kind, type, size: blob.size, dl: name });
+  }catch(e){
+    container.innerHTML = '';
+    container.appendChild(noteEl('附件无法解密（房间密钥不正确）'));
+  }
+}
+const attachIO = new IntersectionObserver(entries => {
+  entries.forEach(en => {
+    if(en.isIntersecting){
+      const el = en.target;
+      attachIO.unobserve(el);
+      const row = messages[Number(el.dataset.idx)];
+      if(row) renderAttachment(el, row);
+    }
+  });
+}, { rootMargin: '240px' });
+
+/* 消息卡片：先骨架，再异步解密填充 */
+async function fillCard(card, row){
+  const nickRes = await decryptText(row.nickname);
+  const nickText = nickRes.ok ? (nickRes.text || '匿名') : (nickRes.needKey ? '需密钥' : '无法解密');
+  const nickEl = card.querySelector('.nickname'); if(nickEl) nickEl.textContent = nickText;
+  const avEl = card.querySelector('.avatar');
+  if(avEl){ avEl.textContent = nickText[0]; avEl.style.background = avatarColor(nickText); }
+  const bodyEl = card.querySelector('.post-content');
+  if(bodyEl){
+    const cRes = await decryptText(row.content);
+    bodyEl.innerHTML = '';
+    if(cRes.ok){
+      if(cRes.text) bodyEl.textContent = cRes.text;
+    } else if(cRes.needKey){
+      bodyEl.appendChild(noteEl('加密消息：输入房间密钥后查看'));
+    } else {
+      bodyEl.appendChild(noteEl('无法解密（房间密钥不正确）'));
+    }
+  }
+}
 function renderFeed(scrollBottom){
+  revokeAllBlobs();
   feedEl.innerHTML = '';
   if(messages.length === 0){
     emptyEl.hidden = false; loadingEl.hidden = true; return;
@@ -378,26 +613,29 @@ function renderFeed(scrollBottom){
   messages.forEach((row, i) => {
     const card = document.createElement('article'); card.className = 'post-card';
     const head = document.createElement('div'); head.className = 'post-head';
-    const av = document.createElement('span'); av.className = 'avatar';
-    av.style.background = avatarColor(row.nickname || '匿名');
-    av.textContent = (row.nickname || '匿')[0];
+    const av = document.createElement('span'); av.className = 'avatar'; av.style.background = '#C9CFD8'; av.textContent = '?';
     const meta = document.createElement('div'); meta.className = 'post-meta';
-    const nick = document.createElement('span'); nick.className = 'nickname'; nick.textContent = row.nickname || '匿名';
+    const nick = document.createElement('span'); nick.className = 'nickname'; nick.textContent = '解密中…';
     const time = document.createElement('span'); time.className = 'post-time'; time.textContent = fmtTime(row.created_at);
     meta.appendChild(nick); meta.appendChild(time);
     const floor = document.createElement('span'); floor.className = 'floor'; floor.textContent = '#' + (i + 1);
     head.appendChild(av); head.appendChild(meta); head.appendChild(floor);
     card.appendChild(head);
     if(row.content){
-      const body = document.createElement('div'); body.className = 'post-content'; body.textContent = row.content;
-      card.appendChild(body);
+      const body = document.createElement('div'); body.className = 'post-content';
+      const d = document.createElement('span'); d.className = 'decrypting'; d.innerHTML = '<span class="spinner"></span>解密中…';
+      body.appendChild(d); card.appendChild(body);
     }
     if(row.file_url){
       const files = document.createElement('div'); files.className = 'post-files';
-      renderFiles(files, row);
+      files.dataset.idx = i;
+      const d = document.createElement('div'); d.className = 'decrypting'; d.innerHTML = '<span class="spinner"></span>解密附件…';
+      files.appendChild(d);
       card.appendChild(files);
+      attachIO.observe(files);
     }
     feedEl.appendChild(card);
+    fillCard(card, row);
   });
   if(scrollBottom) window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 }
@@ -439,11 +677,11 @@ function addFiles(fileList){
   }
   updateAttachPreview();
 }
-/* ===== 上传 & 发送 ===== */
-async function uploadFile(file){
-  const ts = Date.now();
-  const safeName = file.name.replace(/[\\\/:*?"<>|]/g, '_').slice(0, 80);
-  const path = 'uploads/' + ts + '-' + Math.random().toString(36).slice(2, 8) + '-' + encodeURIComponent(safeName);
+
+/* ===== 上传 & 发送（全程加密） ===== */
+async function uploadFile(blob, name){
+  const safeName = name.replace(/[\\\/:*?"<>|]/g, '_').slice(0, 80);
+  const path = 'uploads/' + Date.now() + '-' + Math.random().toString(36).slice(2, 8) + '-' + encodeURIComponent(safeName);
   const url = SUPABASE_URL + '/storage/v1/object/' + BUCKET + '/' + path;
   let res;
   try{ res = await fetch(url, {
@@ -451,11 +689,11 @@ async function uploadFile(file){
     headers: {
       'apikey': ANON_KEY,
       'Authorization': 'Bearer ' + ANON_KEY,
-      'Content-Type': file.type || 'application/octet-stream',
+      'Content-Type': 'application/octet-stream',
       'x-upsert': 'true',
       'cache-control': 'public, max-age=31536000'
     },
-    body: file
+    body: blob
   }); }
   catch(e){ throw new Error('文件上传失败：网络错误'); }
   if(!res.ok){
@@ -472,26 +710,32 @@ async function sendMessage(){
   if(!content && pendingFiles.length === 0){
     toast('写点内容或添加一个附件'); return;
   }
+  if(!currentKey){
+    toast('请先设置房间密钥再发送');
+    keyPanel.hidden = false;
+    keyInput.focus();
+    return;
+  }
   busy = true;
   sendBtn.disabled = true;
-  const original = sendBtn.textContent;
-  sendBtn.textContent = '发送中…';
+  sendBtn.textContent = '加密发送中…';
   try{
     const uploaded = [];
     for(const item of pendingFiles){
       try{
-        const url = await uploadFile(item.file);
-        uploaded.push({ url, name: item.file.name, type: item.file.type || 'application/octet-stream', size: item.file.size });
+        const ef = await encryptFile(item.file);
+        const url = await uploadFile(ef.blob, ef.name);
+        uploaded.push({ url, name: item.file.name, type: item.file.type || 'application/octet-stream' });
       }catch(e){
         toast(e.message, true);
         throw e;
       }
     }
     const row = {
-      nickname: (nickInput.value.trim() || '匿名').slice(0, 20),
-      content: content,
+      nickname: await encryptText((nickInput.value.trim() || '匿名').slice(0, 20)),
+      content: await encryptText(content),
       file_url: uploaded.length ? uploaded[0].url : null,
-      file_name: uploaded.length ? uploaded[0].name : null,
+      file_name: uploaded.length ? await encryptText(uploaded[0].name) : null,
       file_type: uploaded.length ? uploaded[0].type : null
     };
     const created = await apiFetch(SUPABASE_URL + TABLE_PATH, {
@@ -513,7 +757,7 @@ async function sendMessage(){
   } finally {
     busy = false;
     sendBtn.disabled = false;
-    sendBtn.textContent = original;
+    sendBtn.textContent = '发送';
   }
 }
 
@@ -557,6 +801,34 @@ $('refreshBtn').addEventListener('click', () => {
 nickInput.addEventListener('change', saveNick);
 nickInput.addEventListener('blur', () => { if(!nickInput.value.trim()) nickInput.value = '匿名'; });
 
+/* 密钥面板 */
+keyBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  keyPanel.hidden = !keyPanel.hidden;
+  if(!keyPanel.hidden) keyInput.focus();
+});
+document.addEventListener('click', e => {
+  if(!keyPanel.hidden && !keyPanel.contains(e.target) && e.target !== keyBtn) keyPanel.hidden = true;
+});
+keyInput.addEventListener('keydown', e => { if(e.key === 'Enter') keyApply.click(); });
+keyApply.addEventListener('click', async () => {
+  const pwd = keyInput.value;
+  if(pwd.length < 6){ toast('房间密钥至少 6 位', true); return; }
+  try{
+    await setPassword(pwd);
+    keyInput.value = '';
+    keyPanel.hidden = true;
+    toast('已开启端到端加密');
+  }catch(e){
+    toast('加密初始化失败：' + (e && e.message || '未知错误'), true);
+  }
+});
+keyClear.addEventListener('click', () => {
+  clearKey();
+  keyPanel.hidden = true;
+  toast('已清除密钥，仅可查看历史明文消息');
+});
+
 /* 拖拽上传（可选增强） */
 document.addEventListener('dragover', e => e.preventDefault());
 document.addEventListener('drop', e => {
@@ -567,7 +839,7 @@ document.addEventListener('drop', e => {
 /* ===== 初始化 ===== */
 loadNick();
 renderFeed(false);
-refresh(false);
+loadSavedKey().finally(() => refresh(false));
 setInterval(() => { if(document.visibilityState === 'visible' && !busy) refresh(false); }, POLL_MS);
 </script>
 </body>
