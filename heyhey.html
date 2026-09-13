@@ -309,6 +309,8 @@ const ANON_KEY     = 'sb_publishable_5mocRK-Zci-bnVLQ92YCRA_m4cM_iiV';
 const MAX_FILES      = 20;
 const MAX_FILE_SIZE  = 500 * 1024 * 1024;  // 单文件上限 500MB
 const MAX_TOTAL_SIZE = 1024 * 1024 * 1024; // 待发送附件累积上限 1GB
+const MAX_MESSAGES   = 100;                // 页面最多保留消息条数（超出自动清理最旧）
+const BUCKET_LIMIT   = 1024 * 1024 * 1024; // 桶空间估算上限 1GB（Supabase 免费配额）
 const POLL_MS       = 20000;
 
 const AUTH_HEADERS = {
@@ -505,7 +507,7 @@ async function fetchWithProgress(url, onProgress){
     throw e;
   }
   clearTimeout(timer);
-  if(!res.ok) throw new Error('附件下载失败（' + res.status + '）');
+  if(!res.ok) throw Object.assign(new Error('附件下载失败（' + res.status + '）'), { status: res.status });
   const total = Number(res.headers.get('content-length')) || 0;
   const reader = res.body.getReader();
   const chunks = [];
@@ -542,10 +544,9 @@ async function decryptFileBlob(url, onProgress){
   throw lastErr;
 }
 /* ===== 解密结果缓存 =====
- * 关键：缓存"解密任务"（Promise）而非仅结果，
- * 轮询刷新复用同一任务，大文件不再被刷新打断、重复下载 */
+ * 关键：轮询刷新不再全量撤销附件，已解密附件直接复用，避免"没解完就刷新"的循环 */
 const textCache = new Map();    // id -> {nick, content, contentState}
-const attachCache = new Map();  // id -> {promise, files, prog}
+const attachCache = new Map();  // id -> [files]
 let cacheOrder = [];
 function revokeAttach(id){
   const entry = attachCache.get(id);
@@ -562,7 +563,7 @@ function trimCache(){
   }
 }
 function invalidateCaches(){
-  attachCache.forEach((entry, id) => revokeAttach(id));
+  attachCache.forEach((files, id) => revokeAttach(id));
   attachCache.clear();
   textCache.clear();
   cacheOrder = [];
@@ -607,6 +608,109 @@ async function loadMessages(){
   const rows = await apiFetch(url, { headers: AUTH_HEADERS });
   rows.reverse();
   return rows;
+}
+
+/* ===== 自动清理（尽力而为，安全降级） =====
+ * 依赖 anon 的 DELETE 权限：
+ *  - 未开启 RLS（当前状态）：真实删除最旧消息及其附件，腾空间/控条数；
+ *  - 已开启只读安全策略：删除被拒 → 自动降级为"仅显示最近 MAX_MESSAGES 条"。
+ * 只删"最旧的消息及其附件"，绝不误伤新数据。 */
+let cleanPermOK = true;
+let usageCache = { t: 0, usage: 0 };
+/* 从存储 URL 提取对象 key（兼容 public / 非 public 两种形式） */
+function urlToKey(u){
+  const m = u.split('/storage/v1/object/')[1];
+  if(!m) return '';
+  const parts = m.split('/');
+  if(parts[0] === 'public') parts.shift();
+  if(parts[0] === BUCKET) parts.shift();
+  return parts.join('/');
+}
+/* 扫描桶内 uploads/ 全部对象，累加占用字节（5 分钟缓存） */
+async function getBucketUsage(){
+  if(Date.now() - usageCache.t < 300000) return usageCache.usage;
+  let usage = 0, offset = 0;
+  try{
+    while(true){
+      const list = await apiFetch(SUPABASE_URL + '/storage/v1/object/list/' + BUCKET, {
+        method: 'POST',
+        headers: AUTH_HEADERS,
+        body: JSON.stringify({ prefix:'uploads', limit:1000, offset })
+      });
+      if(!Array.isArray(list) || list.length === 0) break;
+      for(const o of list){
+        const s = Number(o && o.metadata && o.metadata.size);
+        if(!isNaN(s)) usage += s;
+      }
+      offset += list.length;
+      if(list.length < 1000) break;
+    }
+    usageCache = { t: Date.now(), usage };
+    return usage;
+  }catch(e){
+    return null; // 扫描失败：降级为不检查空间
+  }
+}
+async function deleteStorageObject(key){
+  if(!cleanPermOK || !key) return false;
+  try{
+    const res = await fetch(SUPABASE_URL + '/storage/v1/object/' + BUCKET + '/' + key, {
+      method: 'DELETE', headers: AUTH_HEADERS
+    });
+    if(res.status === 401 || res.status === 403){ cleanPermOK = false; return false; }
+    return res.ok || res.status === 404;
+  }catch(e){ return false; }
+}
+async function deleteMessageRow(id){
+  if(!cleanPermOK || !id) return false;
+  try{
+    const res = await fetch(SUPABASE_URL + TABLE_PATH + '?id=eq.' + id, {
+      method: 'DELETE', headers: AUTH_HEADERS
+    });
+    if(res.status === 401 || res.status === 403){ cleanPermOK = false; return false; }
+    return res.ok;
+  }catch(e){ return false; }
+}
+/* 删除最旧一条消息及其所有附件；成功返回 true */
+async function removeOldestMessage(){
+  if(!messages.length) return false;
+  const m = messages[0];
+  const urls = parseAttachList(m.file_url);
+  for(const u of urls){
+    const key = urlToKey(u);
+    if(key) await deleteStorageObject(key);
+  }
+  const ok = await deleteMessageRow(m.id);
+  if(ok) messages.shift();
+  return ok;
+}
+/* 上传前：估算桶空间，不足则删最旧文件直到能放下；返回是否放得下 */
+async function ensureBucketSpace(need){
+  if(!cleanPermOK) return true;
+  let usage = await getBucketUsage();
+  if(usage === null) return true;
+  let guard = 0;
+  while(usage + need > BUCKET_LIMIT && messages.length > 0 && guard++ < 20){
+    const ok = await removeOldestMessage();
+    if(!ok) break;
+    usageCache.t = 0; // 失效缓存，重扫
+    usage = await getBucketUsage();
+    if(usage === null) return true;
+  }
+  return usage + need <= BUCKET_LIMIT;
+}
+/* 消息数超限时：尝试删最旧；删不动则显示层截断到最近 MAX_MESSAGES 条 */
+async function cleanupMessages(){
+  let guard = 0;
+  while(messages.length > MAX_MESSAGES && guard++ < 20){
+    const ok = await removeOldestMessage();
+    if(!ok) break;
+    renderFeed(false);
+  }
+  if(messages.length > MAX_MESSAGES){
+    messages = messages.slice(messages.length - MAX_MESSAGES);
+    renderFeed(false);
+  }
 }
 
 /* ===== 渲染 ===== */
@@ -721,6 +825,10 @@ async function renderOneFile(id, url, name, type, prog){
       saveBadKeys();
       return { url, name, kind, type, ok: false, needKey: false };
     }
+    if(e && e.status === 404){
+      /* 附件已被自动清理或删除 */
+      return { url, name, kind, type, ok: false, deleted: true };
+    }
     /* 网络/下载失败：可重试 */
     return { url, name, kind, type, ok: false, needKey: false, netErr: true };
   }
@@ -742,7 +850,8 @@ function renderFilesInto(container, files, rowId){
   files.forEach(f => {
     if(!f.ok){
       const note = noteEl(
-        f.badKey ? '附件密钥不匹配，已跳过（可点密钥按钮换密钥后查看）'
+        f.deleted ? '附件已被清理（旧消息自动清理时移除）'
+        : f.badKey ? '附件密钥不匹配，已跳过（可点密钥按钮换密钥后查看）'
         : f.needKey ? '加密附件：设置房间密钥后可查看'
         : f.netErr ? '附件下载失败，请检查网络后重试'
         : '附件无法解密（房间密钥不正确）'
@@ -1000,6 +1109,15 @@ async function sendMessage(){
   sendBtn.disabled = true;
   sendBtn.textContent = '加密发送中…';
   try{
+    /* 上传前：若带附件，估算桶空间，不足则自动删最旧文件腾空间 */
+    if(pendingFiles.length){
+      const need = pendingTotalSize();
+      const enough = await ensureBucketSpace(need);
+      if(!enough){
+        toast('存储空间不足：已尝试清理旧文件仍放不下，请手动清理或扩容', true);
+        return;
+      }
+    }
     const uploaded = [];
     for(const item of pendingFiles){
       try{
@@ -1033,6 +1151,8 @@ async function sendMessage(){
     msgInput.value = ''; autoGrow();
     pendingFiles = []; updateAttachPreview();
     saveNick();
+    /* 发送成功后：消息数超限则清理最旧（尽力而为） */
+    cleanupMessages();
   } catch(e){
     toast(e.message, true);
   } finally {
@@ -1051,6 +1171,8 @@ async function refresh(manual){
     messages = rows;
     renderFeed(manual && had === 0);
     setConn(true);
+    /* 消息超过上限时异步清理最旧（不阻塞渲染；权限不足自动降级为显示截断） */
+    if(messages.length > MAX_MESSAGES) cleanupMessages();
   }catch(e){
     setConn(false, e.message);
     if(manual) toast(e.message, true);
