@@ -19,18 +19,6 @@
     --shadow:0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.06);
     --font:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",-apple-system,"Segoe UI",Roboto,sans-serif;
   }
-  @media (prefers-color-scheme:dark){
-    :root{
-      --bg:#0E1116; --surface:#161B22; --surface-2:#1C232D;
-      --border:#242D3A; --border-strong:#33404F;
-      --primary:#3B82F6; --primary-strong:#60A5FA; --primary-weak:#16233B;
-      --accent:#F59E0B; --accent-weak:#2E2412;
-      --text:#E7EBF1; --text-2:#9BA6B4; --text-3:#6B7684;
-      --danger:#F87171; --danger-weak:#2A1418;
-      --ok:#4ADE80; --ok-weak:#10281B;
-      --shadow:0 1px 2px rgba(0,0,0,.3), 0 1px 3px rgba(0,0,0,.35);
-    }
-  }
   *{box-sizing:border-box; margin:0; padding:0;}
   html,body{height:100%;}
   body{
@@ -149,23 +137,6 @@
   }
   .file-note .retry-btn:hover{background:var(--surface-2);}
 
-  /* 附件预览条 */
-  .att-preview{display:flex; gap:8px; overflow-x:auto; padding-bottom:8px; scrollbar-width:none; flex-wrap:nowrap;}
-  .att-preview::-webkit-scrollbar{display:none;}
-  .att-item{
-    display:flex; align-items:center; gap:6px; background:var(--surface-2); border:1px solid var(--border);
-    border-radius:var(--radius-s); padding:5px 8px; font-size:12px; flex:none; max-width:200px;
-  }
-  .att-item .att-ic{width:22px; height:22px; border-radius:6px; background:var(--primary-weak); color:var(--primary); display:flex; align-items:center; justify-content:center; flex:none;}
-  .att-item .att-ic svg{width:12px; height:12px;}
-  .att-item .att-name{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:110px;}
-  .att-item .att-size{color:var(--text-3); flex:none;}
-  .att-item .att-rm{color:var(--text-3); flex:none; padding:2px;}
-  .att-item .att-rm:hover{color:var(--danger);}
-  .att-item .att-rm svg{width:13px; height:13px; display:block;}
-  .att-sum{font-size:12px; color:var(--text-2); display:flex; align-items:center; gap:6px; padding:2px 0 8px;}
-  .att-sum b{color:var(--primary); font-weight:700;}
-
   /* 空态 / 加载态 */
   .empty{
     text-align:center; padding:64px 20px; color:var(--text-2);
@@ -183,6 +154,19 @@
     border-top:1px solid var(--border); padding:10px 14px calc(10px + env(safe-area-inset-bottom));
   }
   .composer-inner{max-width:760px; margin:0 auto;}
+  .attach-preview{display:flex; gap:8px; overflow-x:auto; padding-bottom:8px; scrollbar-width:none;}
+  .attach-preview::-webkit-scrollbar{display:none;}
+  .att-item{
+    display:flex; align-items:center; gap:6px; background:var(--surface-2); border:1px solid var(--border);
+    border-radius:var(--radius-s); padding:5px 8px; font-size:12px; flex:none; max-width:200px;
+  }
+  .att-item .att-ic{width:22px; height:22px; border-radius:6px; background:var(--primary-weak); color:var(--primary); display:flex; align-items:center; justify-content:center; flex:none;}
+  .att-item .att-ic svg{width:12px; height:12px;}
+  .att-item .att-name{overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:110px;}
+  .att-item .att-size{color:var(--text-3); flex:none;}
+  .att-item .att-rm{color:var(--text-3); flex:none; padding:2px;}
+  .att-item .att-rm:hover{color:var(--danger);}
+  .att-item .att-rm svg{width:13px; height:13px; display:block;}
   .composer-row{display:flex; align-items:flex-end; gap:8px;}
   .msg-input{
     flex:1; resize:none; border:1px solid var(--border-strong); border-radius:12px; background:var(--surface-2);
@@ -205,6 +189,7 @@
   .nick-input:hover{background:var(--surface-2);}
   .nick-input:focus{background:var(--surface-2); border-color:var(--border);}
   .composer-hint{font-size:12px; color:var(--text-3); margin-left:auto;}
+  .att-sum{font-size:12px; color:var(--primary); font-weight:700; flex:none;}
   .enc-hint{font-size:12px; color:var(--ok); display:flex; align-items:center; gap:4px; font-weight:500;}
   .enc-hint svg{width:12px; height:12px;}
 
@@ -230,6 +215,22 @@
   @media (prefers-reduced-motion:reduce){
     *{animation-duration:.01ms !important; transition-duration:.01ms !important;}
   }
+  /* 深色模式适配 */
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#111418; --surface:#1A1F26; --surface-2:#212833;
+      --border:#2A303A; --border-strong:#39404C;
+      --text:#E7EAEE; --text-2:#A8B0BC; --text-3:#7C8594;
+      --primary:#4C8DFF; --primary-strong:#6FA3FF; --primary-weak:#1E2A44;
+      --accent:#F5B23E; --accent-weak:#3A2F1A;
+      --danger:#F87171; --danger-weak:#3A1F22;
+      --ok:#34D399; --ok-weak:#16302A;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 1px 3px rgba(0,0,0,.35);
+    }
+    .file-card:hover{background:#252C36;}
+    .file-media video{background:#0B0E14;}
+    .toast{background:#2A303A;}
+  }
   [hidden]{display:none !important;}
 </style>
 </head>
@@ -253,7 +254,7 @@
     </button>
     <div id="keyPanel" class="key-panel" hidden>
       <h4>房间密钥</h4>
-      <div class="desc">消息与附件会用此密钥加密后存储，知道同一密钥的人才能看到内容。密钥不会上传，忘记将无法解密。密钥对不上的历史消息会自动跳过解密，换密钥后重试。</div>
+      <div class="desc">消息与附件会用此密钥加密后存储，知道同一密钥的人才能看到内容。密钥不会上传，忘记将无法解密。</div>
       <input id="keyInput" type="password" placeholder="输入房间密钥（至少 6 位）" autocomplete="off">
       <div class="key-row">
         <button id="keyApply" class="key-btn-act">设置密钥</button>
@@ -277,7 +278,6 @@
 <footer class="composer-wrap">
   <div class="composer-inner">
     <div id="attachPreview" class="attach-preview" hidden></div>
-    <span id="attSummary" class="att-sum" hidden></span>
     <div class="composer-row">
       <input id="fileInput" type="file" multiple hidden>
       <button id="fileBtn" class="icon-btn" title="添加附件（图片/视频/音频/文档，单个≤500MB）" style="width:42px;height:42px;border-radius:12px;">
@@ -288,6 +288,7 @@
     </div>
     <div class="composer-meta">
       <input id="nickInput" class="nick-input" maxlength="20" placeholder="你的昵称">
+      <span id="attSummary" class="att-sum" hidden></span>
       <span id="encHint" class="enc-hint" hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         已加密
@@ -300,14 +301,14 @@
 <div id="toast" class="toast" hidden></div>
 
 <script>
-/* ===== 配置（Supabase） ===== */
+/* ===== 配置（来自你的 Supabase 项目） ===== */
 const SUPABASE_URL = 'https://gbemkxwizbceqmsrerix.supabase.co';
 const TABLE_PATH   = '/rest/v1/wiebxhwvx';
 const BUCKET       = 'tysthjv';
 const ANON_KEY     = 'sb_publishable_5mocRK-Zci-bnVLQ92YCRA_m4cM_iiV';
-const MAX_FILES     = 20;
-const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
-const MAX_TOTAL_SIZE = 1024 * 1024 * 1024; // 1GB
+const MAX_FILES      = 20;
+const MAX_FILE_SIZE  = 500 * 1024 * 1024;  // 单文件上限 500MB
+const MAX_TOTAL_SIZE = 1024 * 1024 * 1024; // 待发送附件累积上限 1GB
 const POLL_MS       = 20000;
 
 const AUTH_HEADERS = {
@@ -316,28 +317,9 @@ const AUTH_HEADERS = {
   'Content-Type': 'application/json'
 };
 
-/* ===== 安全 localStorage ===== */
-const safeStore = (() => {
-  const noop = { get: () => null, set: () => {}, remove: () => {} };
-  try{
-    const t = '__tieba_test__';
-    localStorage.setItem(t, '1');
-    localStorage.removeItem(t);
-    return localStorage;
-  }catch(e){
-    return noop;
-  }
-})();
-
-/* ===== 加密能力检测 ===== */
-const CRYPTO_OK = !!(window.crypto && crypto.subtle && window.isSecureContext);
-if(!CRYPTO_OK){
-  console.warn('非安全上下文（非 https），加密不可用');
-}
-
 /* ===== 状态 ===== */
-let messages = [];
-let pendingFiles = [];
+let messages = [];        // 正序（最新在底部）
+let pendingFiles = [];    // 待发送附件 {file}
 let busy = false;
 
 /* ===== DOM ===== */
@@ -345,13 +327,18 @@ const $ = id => document.getElementById(id);
 const feedEl = $('feed'), emptyEl = $('emptyState'), loadingEl = $('loading');
 const connEl = $('connState'), connText = $('connText');
 const fileInput = $('fileInput'), fileBtn = $('fileBtn'), msgInput = $('msgInput'), sendBtn = $('sendBtn');
-const nickInput = $('nickInput'), attachPreview = $('attachPreview'), toastEl = $('toast');
+const nickInput = $('nickInput'), attachPreview = $('attachPreview'), toastEl = $('toast'), attSummary = $('attSummary');
 const keyBtn = $('keyBtn'), keyPanel = $('keyPanel'), keyInput = $('keyInput');
 const keyApply = $('keyApply'), keyClear = $('keyClear'), keyStatus = $('keyStatus'), encHint = $('encHint');
-const attSummary = $('attSummary');
 
 /* ===== 昵称 ===== */
 const LS_NICK = 'tieba_nick_v1';
+/* localStorage 安全封装：隐私模式/被禁用时静默降级，避免初始化中断导致页面卡在加载 */
+const safeStore = {
+  get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
+  set(k, v){ try{ localStorage.setItem(k, v); }catch(e){} },
+  remove(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
 function loadNick(){
   let n = safeStore.get(LS_NICK);
   if(!n){ n = '吧友' + Math.floor(1000 + Math.random() * 9000); safeStore.set(LS_NICK, n); }
@@ -391,8 +378,7 @@ function extIcon(name){
   if(['doc','docx'].includes(e)) return 'doc';
   if(['xls','xlsx','csv'].includes(e)) return 'xls';
   if(['ppt','pptx'].includes(e)) return 'ppt';
-  if(['apk','exe','msi','dmg'].includes(e)) return 'app';
-  if(['txt','md','log','lua','json','js','py','java','c','cpp','h','html','css','xml','yml','yaml','sh','bat','ini','conf'].includes(e)) return 'txt';
+  if(['txt','md','log'].includes(e)) return 'txt';
   return 'file';
 }
 function fileKind(mime, name){
@@ -407,6 +393,8 @@ const LS_KEY = 'tieba_key_v1';
 const KEY_SALT = new TextEncoder().encode('xiao-niao-tieba::v1');
 const ENC_PREFIX = 'enc:';
 let currentKey = null;
+/* Web Crypto 需要安全上下文（https / localhost）。file:// 在部分移动浏览器不可用，提前检测并提示 */
+const CRYPTO_OK = !!(window.crypto && window.crypto.subtle);
 
 function b64FromBytes(buf){
   const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
@@ -457,7 +445,6 @@ async function loadSavedKey(){
 function clearKey(){
   currentKey = null;
   safeStore.remove(LS_KEY);
-  clearBadKeys();
   invalidateCaches();
   updateKeyUI();
   refresh(false);
@@ -505,7 +492,6 @@ async function encryptFile(file){
   const base = (file.name || 'file').replace(/\.[^.]+$/, '') || 'file';
   return { blob: new Blob([out], { type:'application/octet-stream' }), name: base + '.enc' };
 }
-
 /* 附件下载+解密：网络错误自动重试 3 次（单次 60 秒超时）；密钥不匹配立即判定 */
 async function decryptFileBlob(url){
   let lastErr = null;
@@ -533,25 +519,23 @@ async function decryptFileBlob(url){
   }
   throw lastErr;
 }
-
-/* ===== 解密缓存：按消息 id 缓存结果，轮询刷新不重复下载解密 ===== */
-const textCache = new Map();
-const attachCache = new Map();
+/* ===== 解密结果缓存 =====
+ * 关键：轮询刷新不再全量撤销附件，已解密附件直接复用，避免"没解完就刷新"的循环 */
+const textCache = new Map();    // id -> {nick, content, contentState}
+const attachCache = new Map();  // id -> [files]
 let cacheOrder = [];
-const CACHE_MAX = 40;
-
 function revokeAttach(id){
-  const files = attachCache.get(id);
-  if(files){
-    files.forEach(f => { if(f.blobUrl) URL.revokeObjectURL(f.blobUrl); });
-  }
+  const list = attachCache.get(id);
+  if(list) list.forEach(f => f.blobUrl && URL.revokeObjectURL(f.blobUrl));
 }
 function trimCache(){
-  while(cacheOrder.length > CACHE_MAX){
-    const oldId = cacheOrder.shift();
-    textCache.delete(oldId);
-    revokeAttach(oldId);
-    attachCache.delete(oldId);
+  while(attachCache.size > 40 && cacheOrder.length){
+    const id = cacheOrder.shift();
+    if(attachCache.has(id)){
+      revokeAttach(id);
+      attachCache.delete(id);
+      textCache.delete(id);
+    }
   }
 }
 function invalidateCaches(){
@@ -610,7 +594,6 @@ const FILE_ICONS = {
   xls:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="12" y1="13" x2="12" y2="17"/>',
   ppt:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9.5 13l1.5 3 1.5-3M10.5 16h1"/>',
   txt:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/>',
-  app:'<path d="M10 20v-6h4v6a2 2 0 0 0 2 2h3a2 2 0 0 0 2-2v-7h2.5a1 1 0 0 0 .7-1.7l-11-11a1 1 0 0 0-1.4 0l-11 11a1 1 0 0 0 .7 1.7H3v7a2 2 0 0 0 2 2h3a2 2 0 0 0 2-2z"/>',
   file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>'
 };
 function fileIconSvg(kind){
@@ -619,16 +602,6 @@ function fileIconSvg(kind){
 function safeUrl(u){
   if(typeof u !== 'string') return '';
   return /^https?:\/\//i.test(u) ? u : '';
-}
-function parseAttachList(raw){
-  if(!raw) return [];
-  try{ const v = JSON.parse(raw); if(Array.isArray(v)) return v.filter(x => typeof x === 'string'); }catch(e){}
-  return typeof raw === 'string' ? [raw] : [];
-}
-function parseAttachMeta(raw){
-  if(!raw) return [];
-  try{ const v = JSON.parse(raw); if(Array.isArray(v)) return v.filter(x => typeof x === 'string'); }catch(e){}
-  return typeof raw === 'string' ? [raw] : [];
 }
 function noteEl(text){
   const d = document.createElement('div'); d.className = 'file-note';
@@ -658,7 +631,7 @@ function renderDirectFile(container, f){
     const a = document.createElement('a'); a.className = 'file-card';
     a.href = f.url; a.target = '_blank'; a.rel = 'noopener';
     if(f.dl) a.download = f.dl;
-    const ic = document.createElement('span'); ic.className = 'file-ic' + (['zip','xls','ppt','app'].includes(extIcon(f.name)) ? ' type-accent' : '');
+    const ic = document.createElement('span'); ic.className = 'file-ic' + (['zip','xls','ppt'].includes(extIcon(f.name)) ? ' type-accent' : '');
     ic.innerHTML = fileIconSvg(extIcon(f.name));
     const info = document.createElement('span'); info.className = 'file-info';
     const nm = document.createElement('div'); nm.className = 'file-name'; nm.textContent = f.name;
@@ -671,7 +644,27 @@ function renderDirectFile(container, f){
     container.appendChild(a);
   }
 }
-
+/* 多附件渲染：file_url 可能是 JSON 数组（新）或单个 URL（旧数据），逐个渲染 */
+function parseAttachList(raw){
+  if(typeof raw !== 'string' || !raw) return [];
+  let urls = [];
+  if(raw.trim().startsWith('[')){
+    try{ urls = JSON.parse(raw); }catch(e){ urls = []; }
+  } else {
+    urls = [raw];
+  }
+  return urls.filter(u => typeof u === 'string' && /^https?:\/\//i.test(u));
+}
+function parseAttachMeta(raw){
+  if(typeof raw !== 'string' || !raw) return [];
+  let arr = [];
+  if(raw.trim().startsWith('[')){
+    try{ arr = JSON.parse(raw); }catch(e){ arr = []; }
+  } else {
+    arr = [raw];
+  }
+  return arr;
+}
 /* 单附件处理：返回渲染描述对象，由 renderAttachment 统一渲染并缓存（避免轮询时重复下载解密） */
 async function renderOneFile(id, url, name, type){
   const kind = type ? fileKind(type, name) : 'file';
@@ -746,9 +739,7 @@ async function renderAttachment(container, row){
     renderDirectFile(container, f);
   });
 }
-
-/* IntersectionObserver 懒加载：滚动到附近才下载解密附件；缺失时降级为直接渲染 */
-const attachIO = 'IntersectionObserver' in window
+const attachIO = ('IntersectionObserver' in window)
   ? new IntersectionObserver(entries => {
       entries.forEach(en => {
         if(en.isIntersecting){
@@ -822,8 +813,7 @@ function renderFeed(scrollBottom){
       const d = document.createElement('div'); d.className = 'decrypting'; d.innerHTML = '<span class="spinner"></span>解密附件…';
       files.appendChild(d);
       card.appendChild(files);
-      if(attachIO) attachIO.observe(files);
-      else renderAttachment(files, row);
+      if(attachIO) attachIO.observe(files); else renderAttachment(files, row);
     }
     feedEl.appendChild(card);
     fillCard(card, row);
@@ -842,25 +832,20 @@ function toast(msg, isErr){
 }
 
 /* ===== 附件管理 ===== */
+function pendingTotalSize(){
+  return pendingFiles.reduce((s, it) => s + (it.file.size || 0), 0);
+}
 function isDuplicate(file){
   return pendingFiles.some(it => it.file.name === file.name && it.file.size === file.size);
-}
-function totalPendingSize(){
-  return pendingFiles.reduce((s, it) => s + it.file.size, 0);
 }
 function updateAttachSummary(){
   if(pendingFiles.length === 0){ attSummary.hidden = true; return; }
   attSummary.hidden = false;
-  attSummary.innerHTML = '';
-  attSummary.append(document.createTextNode('已选 '));
-  const b = document.createElement('b'); b.textContent = pendingFiles.length;
-  attSummary.append(b, document.createTextNode(' 个附件 · 共 '));
-  const b2 = document.createElement('b'); b2.textContent = fmtSize(totalPendingSize());
-  attSummary.append(b2, document.createTextNode(' / 1GB'));
+  attSummary.textContent = pendingFiles.length + ' 个附件 · ' + fmtSize(pendingTotalSize());
 }
 function updateAttachPreview(){
   attachPreview.innerHTML = '';
-  if(pendingFiles.length === 0){ attachPreview.hidden = true; return; }
+  if(pendingFiles.length === 0){ attachPreview.hidden = true; updateAttachSummary(); return; }
   attachPreview.hidden = false;
   pendingFiles.forEach((item, idx) => {
     const el = document.createElement('div'); el.className = 'att-item';
@@ -870,22 +855,30 @@ function updateAttachPreview(){
     const sz = document.createElement('span'); sz.className = 'att-size'; sz.textContent = fmtSize(item.file.size);
     const rm = document.createElement('button'); rm.className = 'att-rm'; rm.title = '移除';
     rm.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
-    rm.addEventListener('click', () => { pendingFiles.splice(idx, 1); updateAttachPreview(); updateAttachSummary(); });
+    rm.addEventListener('click', () => { pendingFiles.splice(idx, 1); updateAttachPreview(); });
     el.appendChild(ic); el.appendChild(nm); el.appendChild(sz); el.appendChild(rm);
     attachPreview.appendChild(el);
   });
+  updateAttachSummary();
 }
 function addFiles(fileList){
   const arr = Array.from(fileList);
   for(const f of arr){
-    if(f.size > MAX_FILE_SIZE){ toast('「' + f.name + '」超过 500MB 限制', true); continue; }
-    if(isDuplicate(f)){ toast('「' + f.name + '」已在列表，勿重复添加', true); continue; }
-    if(totalPendingSize() + f.size > MAX_TOTAL_SIZE){ toast('附件总大小超过 1GB，已拒绝添加', true); continue; }
-    if(pendingFiles.length >= MAX_FILES){ toast('最多同时发送 ' + MAX_FILES + ' 个文件', true); break; }
+    if(f.size > MAX_FILE_SIZE){
+      toast('「' + f.name + '」超过 500MB 单文件限制，未添加', true); continue;
+    }
+    if(isDuplicate(f)){
+      toast('「' + f.name + '」已在列表中，不重复添加', true); continue;
+    }
+    if(pendingFiles.length >= MAX_FILES){
+      toast('最多同时发送 ' + MAX_FILES + ' 个文件', true); break;
+    }
+    if(pendingTotalSize() + f.size > MAX_TOTAL_SIZE){
+      toast('附件累积将超过 1GB，「' + f.name + '」未添加', true); continue;
+    }
     pendingFiles.push({ file: f });
   }
   updateAttachPreview();
-  updateAttachSummary();
 }
 
 /* ===== 上传 & 发送（全程加密） ===== */
@@ -920,6 +913,10 @@ async function sendMessage(){
   if(!content && pendingFiles.length === 0){
     toast('写点内容或添加一个附件'); return;
   }
+  if(!CRYPTO_OK){
+    toast('当前环境不支持加密，请通过 https 打开页面', true);
+    return;
+  }
   if(!currentKey){
     toast('请先设置房间密钥再发送');
     keyPanel.hidden = false;
@@ -944,6 +941,7 @@ async function sendMessage(){
     const row = {
       nickname: await encryptText((nickInput.value.trim() || '匿名').slice(0, 20)),
       content: await encryptText(content),
+      /* 多附件：打包成 JSON 数组存进单值字段（兼容旧版单附件数据） */
       file_url: uploaded.length ? JSON.stringify(uploaded.map(u => u.url)) : null,
       file_name: uploaded.length ? await encryptText(JSON.stringify(uploaded.map(u => u.name))) : null,
       file_type: uploaded.length ? JSON.stringify(uploaded.map(u => u.type)) : null
@@ -960,7 +958,7 @@ async function sendMessage(){
       await refresh(false);
     }
     msgInput.value = ''; autoGrow();
-    pendingFiles = []; updateAttachPreview(); updateAttachSummary();
+    pendingFiles = []; updateAttachPreview();
     saveNick();
   } catch(e){
     toast(e.message, true);
