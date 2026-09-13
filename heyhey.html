@@ -420,6 +420,7 @@ async function setPassword(password){
   currentKey = await deriveKeyFromPassword(password);
   const raw = await crypto.subtle.exportKey('raw', currentKey);
   safeStore.set(LS_KEY, b64FromBytes(raw));
+  invalidateCaches();
   updateKeyUI();
   refresh(false);
   return true;
@@ -429,6 +430,7 @@ async function loadSavedKey(){
   if(!b64) return false;
   try{
     currentKey = await crypto.subtle.importKey('raw', bytesFromB64(b64), {name:'AES-GCM'}, true, ['encrypt','decrypt']);
+    invalidateCaches();
     updateKeyUI();
     return true;
   }catch(e){ safeStore.remove(LS_KEY); return false; }
@@ -436,6 +438,7 @@ async function loadSavedKey(){
 function clearKey(){
   currentKey = null;
   safeStore.remove(LS_KEY);
+  invalidateCaches();
   updateKeyUI();
   refresh(false);
 }
@@ -490,8 +493,31 @@ async function decryptFileBlob(url){
   const ct = buf.subarray(12);
   return crypto.subtle.decrypt({ name:'AES-GCM', iv }, currentKey, ct);
 }
-const blobUrls = new Set();
-function revokeAllBlobs(){ blobUrls.forEach(u => URL.revokeObjectURL(u)); blobUrls.clear(); }
+/* ===== 解密结果缓存 =====
+ * 关键：轮询刷新不再全量撤销附件，已解密附件直接复用，避免"没解完就刷新"的循环 */
+const textCache = new Map();    // id -> {nick, content, contentState}
+const attachCache = new Map();  // id -> [files]
+let cacheOrder = [];
+function revokeAttach(id){
+  const list = attachCache.get(id);
+  if(list) list.forEach(f => f.blobUrl && URL.revokeObjectURL(f.blobUrl));
+}
+function trimCache(){
+  while(attachCache.size > 40 && cacheOrder.length){
+    const id = cacheOrder.shift();
+    if(attachCache.has(id)){
+      revokeAttach(id);
+      attachCache.delete(id);
+      textCache.delete(id);
+    }
+  }
+}
+function invalidateCaches(){
+  attachCache.forEach((files, id) => revokeAttach(id));
+  attachCache.clear();
+  textCache.clear();
+  cacheOrder = [];
+}
 
 /* ===== API ===== */
 async function apiFetch(url, options){
@@ -591,41 +617,53 @@ function parseAttachMeta(raw){
   }
   return arr;
 }
-async function renderOneFile(container, url, name, type){
+/* 单附件处理：返回渲染描述对象，由 renderAttachment 统一渲染并缓存（避免轮询时重复下载解密） */
+async function renderOneFile(url, name, type){
   const kind = type ? fileKind(type, name) : 'file';
   const lastSeg = decodeURIComponent(url.split('/').pop() || '');
   const isEnc = /\.enc($|\?)/i.test(lastSeg);
   if(!isEnc){
-    renderDirectFile(container, { url, name, kind, type });
-    return;
+    return { url, name, kind, type, ok: true };
   }
   if(!currentKey){
-    container.appendChild(noteEl('加密附件：设置房间密钥后可查看'));
-    return;
+    return { url, name, kind, type, ok: false, needKey: true };
   }
   try{
     const pt = await decryptFileBlob(url);
     const blob = new Blob([pt], { type: type || 'application/octet-stream' });
     const blobUrl = URL.createObjectURL(blob);
-    blobUrls.add(blobUrl);
-    renderDirectFile(container, { url: blobUrl, name, kind, type, size: blob.size, dl: name });
+    return { url: blobUrl, name, kind, type, size: blob.size, dl: name, blobUrl, ok: true };
   }catch(e){
-    container.appendChild(noteEl('附件无法解密（房间密钥不正确）'));
+    return { url, name, kind, type, ok: false, needKey: false };
   }
 }
 async function renderAttachment(container, row){
   const urls = parseAttachList(row.file_url);
   if(urls.length === 0){ container.innerHTML = ''; return; }
-  const nameRes = await decryptText(row.file_name);
-  const nameText = nameRes.ok ? (nameRes.text || '') : '';
-  const names = nameText ? parseAttachMeta(nameText) : [];
-  const types = parseAttachMeta(row.file_type);
+  /* 命中缓存：直接复用已解密结果，零网络请求、不被刷新打断 */
+  let files = attachCache.get(row.id);
+  if(!files){
+    const nameRes = await decryptText(row.file_name);
+    const nameText = nameRes.ok ? (nameRes.text || '') : '';
+    const names = nameText ? parseAttachMeta(nameText) : [];
+    const types = parseAttachMeta(row.file_type);
+    files = await Promise.all(urls.map((url, i) => {
+      const name = (names && names[i]) || ('附件' + (i + 1));
+      const type = (types && types[i]) || 'application/octet-stream';
+      return renderOneFile(url, name, type);
+    }));
+    attachCache.set(row.id, files);
+    cacheOrder.push(row.id);
+    trimCache();
+  }
   container.innerHTML = '';
-  await Promise.all(urls.map((url, i) => {
-    const name = (names && names[i]) || ('附件' + (i + 1));
-    const type = (types && types[i]) || 'application/octet-stream';
-    return renderOneFile(container, url, name, type);
-  }));
+  files.forEach(f => {
+    if(!f.ok){
+      container.appendChild(noteEl(f.needKey ? '加密附件：设置房间密钥后可查看' : '附件无法解密（房间密钥不正确）'));
+      return;
+    }
+    renderDirectFile(container, f);
+  });
 }
 const attachIO = ('IntersectionObserver' in window)
   ? new IntersectionObserver(entries => {
@@ -640,28 +678,40 @@ const attachIO = ('IntersectionObserver' in window)
     }, { rootMargin: '240px' })
   : null;
 
-/* 消息卡片：先骨架，再异步解密填充 */
+/* 消息卡片：先骨架，再异步解密填充（解密结果缓存，刷新不重复解密） */
 async function fillCard(card, row){
-  const nickRes = await decryptText(row.nickname);
-  const nickText = nickRes.ok ? (nickRes.text || '匿名') : (nickRes.needKey ? '需密钥' : '无法解密');
+  let nickText, contentText = '', contentState = 'none';
+  const cached = textCache.get(row.id);
+  if(cached){
+    nickText = cached.nick;
+    contentText = cached.content;
+    contentState = cached.contentState;
+  } else {
+    const nickRes = await decryptText(row.nickname);
+    nickText = nickRes.ok ? (nickRes.text || '匿名') : (nickRes.needKey ? '需密钥' : '无法解密');
+    if(row.content){
+      const cRes = await decryptText(row.content);
+      contentText = cRes.ok ? cRes.text : '';
+      contentState = cRes.ok ? 'ok' : (cRes.needKey ? 'needKey' : 'fail');
+    }
+    textCache.set(row.id, { nick: nickText, content: contentText, contentState });
+  }
   const nickEl = card.querySelector('.nickname'); if(nickEl) nickEl.textContent = nickText;
   const avEl = card.querySelector('.avatar');
   if(avEl){ avEl.textContent = nickText[0]; avEl.style.background = avatarColor(nickText); }
   const bodyEl = card.querySelector('.post-content');
   if(bodyEl){
-    const cRes = await decryptText(row.content);
     bodyEl.innerHTML = '';
-    if(cRes.ok){
-      if(cRes.text) bodyEl.textContent = cRes.text;
-    } else if(cRes.needKey){
+    if(contentState === 'ok'){
+      if(contentText) bodyEl.textContent = contentText;
+    } else if(contentState === 'needKey'){
       bodyEl.appendChild(noteEl('加密消息：输入房间密钥后查看'));
-    } else {
+    } else if(contentState === 'fail'){
       bodyEl.appendChild(noteEl('无法解密（房间密钥不正确）'));
     }
   }
 }
 function renderFeed(scrollBottom){
-  revokeAllBlobs();
   feedEl.innerHTML = '';
   if(messages.length === 0){
     emptyEl.hidden = false; loadingEl.hidden = true; return;
