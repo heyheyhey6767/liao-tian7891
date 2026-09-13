@@ -184,6 +184,7 @@
   .nick-input:hover{background:var(--surface-2);}
   .nick-input:focus{background:var(--surface-2); border-color:var(--border);}
   .composer-hint{font-size:12px; color:var(--text-3); margin-left:auto;}
+  .att-sum{font-size:12px; color:var(--primary); font-weight:700; flex:none;}
   .enc-hint{font-size:12px; color:var(--ok); display:flex; align-items:center; gap:4px; font-weight:500;}
   .enc-hint svg{width:12px; height:12px;}
 
@@ -274,7 +275,7 @@
     <div id="attachPreview" class="attach-preview" hidden></div>
     <div class="composer-row">
       <input id="fileInput" type="file" multiple hidden>
-      <button id="fileBtn" class="icon-btn" title="添加附件（图片/视频/音频/文档，单个≤20MB）" style="width:42px;height:42px;border-radius:12px;">
+      <button id="fileBtn" class="icon-btn" title="添加附件（图片/视频/音频/文档，单个≤500MB）" style="width:42px;height:42px;border-radius:12px;">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
       </button>
       <textarea id="msgInput" class="msg-input" rows="1" maxlength="2000" placeholder="说点什么…（Enter 发送）"></textarea>
@@ -282,6 +283,7 @@
     </div>
     <div class="composer-meta">
       <input id="nickInput" class="nick-input" maxlength="20" placeholder="你的昵称">
+      <span id="attSummary" class="att-sum" hidden></span>
       <span id="encHint" class="enc-hint" hidden>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         已加密
@@ -299,8 +301,9 @@ const SUPABASE_URL = 'https://gbemkxwizbceqmsrerix.supabase.co';
 const TABLE_PATH   = '/rest/v1/wiebxhwvx';
 const BUCKET       = 'tysthjv';
 const ANON_KEY     = 'sb_publishable_5mocRK-Zci-bnVLQ92YCRA_m4cM_iiV';
-const MAX_FILES     = 5;
-const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+const MAX_FILES      = 20;
+const MAX_FILE_SIZE  = 500 * 1024 * 1024;  // 单文件上限 500MB
+const MAX_TOTAL_SIZE = 1024 * 1024 * 1024; // 待发送附件累积上限 1GB
 const POLL_MS       = 20000;
 
 const AUTH_HEADERS = {
@@ -319,7 +322,7 @@ const $ = id => document.getElementById(id);
 const feedEl = $('feed'), emptyEl = $('emptyState'), loadingEl = $('loading');
 const connEl = $('connState'), connText = $('connText');
 const fileInput = $('fileInput'), fileBtn = $('fileBtn'), msgInput = $('msgInput'), sendBtn = $('sendBtn');
-const nickInput = $('nickInput'), attachPreview = $('attachPreview'), toastEl = $('toast');
+const nickInput = $('nickInput'), attachPreview = $('attachPreview'), toastEl = $('toast'), attSummary = $('attSummary');
 const keyBtn = $('keyBtn'), keyPanel = $('keyPanel'), keyInput = $('keyInput');
 const keyApply = $('keyApply'), keyClear = $('keyClear'), keyStatus = $('keyStatus'), encHint = $('encHint');
 
@@ -343,7 +346,8 @@ function saveNick(){ safeStore.set(LS_NICK, nickInput.value.trim() || '匿名');
 function fmtSize(b){
   if(b < 1024) return b + ' B';
   if(b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
-  return (b/1024/1024).toFixed(1) + ' MB';
+  if(b < 1024*1024*1024) return (b/1024/1024).toFixed(1) + ' MB';
+  return (b/1024/1024/1024).toFixed(2) + ' GB';
 }
 function fmtTime(iso){
   const t = new Date(iso); if(isNaN(t)) return '';
@@ -704,9 +708,20 @@ function toast(msg, isErr){
 }
 
 /* ===== 附件管理 ===== */
+function pendingTotalSize(){
+  return pendingFiles.reduce((s, it) => s + (it.file.size || 0), 0);
+}
+function isDuplicate(file){
+  return pendingFiles.some(it => it.file.name === file.name && it.file.size === file.size);
+}
+function updateAttachSummary(){
+  if(pendingFiles.length === 0){ attSummary.hidden = true; return; }
+  attSummary.hidden = false;
+  attSummary.textContent = pendingFiles.length + ' 个附件 · ' + fmtSize(pendingTotalSize());
+}
 function updateAttachPreview(){
   attachPreview.innerHTML = '';
-  if(pendingFiles.length === 0){ attachPreview.hidden = true; return; }
+  if(pendingFiles.length === 0){ attachPreview.hidden = true; updateAttachSummary(); return; }
   attachPreview.hidden = false;
   pendingFiles.forEach((item, idx) => {
     const el = document.createElement('div'); el.className = 'att-item';
@@ -720,12 +735,23 @@ function updateAttachPreview(){
     el.appendChild(ic); el.appendChild(nm); el.appendChild(sz); el.appendChild(rm);
     attachPreview.appendChild(el);
   });
+  updateAttachSummary();
 }
 function addFiles(fileList){
   const arr = Array.from(fileList);
   for(const f of arr){
-    if(f.size > MAX_FILE_SIZE){ toast('「' + f.name + '」超过 20MB 限制', true); continue; }
-    if(pendingFiles.length >= MAX_FILES){ toast('最多同时发送 ' + MAX_FILES + ' 个文件', true); break; }
+    if(f.size > MAX_FILE_SIZE){
+      toast('「' + f.name + '」超过 500MB 单文件限制，未添加', true); continue;
+    }
+    if(isDuplicate(f)){
+      toast('「' + f.name + '」已在列表中，不重复添加', true); continue;
+    }
+    if(pendingFiles.length >= MAX_FILES){
+      toast('最多同时发送 ' + MAX_FILES + ' 个文件', true); break;
+    }
+    if(pendingTotalSize() + f.size > MAX_TOTAL_SIZE){
+      toast('附件累积将超过 1GB，「' + f.name + '」未添加', true); continue;
+    }
     pendingFiles.push({ file: f });
   }
   updateAttachPreview();
