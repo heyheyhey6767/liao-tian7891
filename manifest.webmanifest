@@ -9,8 +9,14 @@
   "scope": "./",
   "icons": [
     {
-      "src": "https://gbemkxwizbceqmsrerix.supabase.co/storage/v1/object/public/tysthjv/1789275412420.png",
+      "src": "https://gbemkxwizbceqmsrerix.supabase.co/storage/v1/object/public/ahdha/jzhsv/1789275412420.png",
       "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://gbemkxwizbceqmsrerix.supabase.co/storage/v1/object/public/ahdha/jzhsv/1789275412420.png",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     }
