@@ -2,11 +2,11 @@
   "name": "小鸟贴吧",
   "short_name": "小鸟贴吧",
   "description": "端到端加密社区留言板",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#121212",
   "theme_color": "#7b42f5",
-  "scope": "/",
+  "scope": "./",
   "icons": [
     {
       "src": "https://gbemkxwizbceqmsrerix.supabase.co/storage/v1/object/public/tysthjv/1789275412420.png",
