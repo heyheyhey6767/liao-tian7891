@@ -444,10 +444,12 @@ async function setPassword(password){
   return true;
 }
 async function loadSavedKey(){
+  if(!CRYPTO_OK) return false;
   const b64 = safeStore.get(LS_KEY);
   if(!b64) return false;
   try{
     currentKey = await crypto.subtle.importKey('raw', bytesFromB64(b64), {name:'AES-GCM'}, true, ['encrypt','decrypt']);
+    invalidateCaches();
     updateKeyUI();
     return true;
   }catch(e){ safeStore.remove(LS_KEY); return false; }
@@ -504,24 +506,29 @@ async function encryptFile(file){
   return { blob: new Blob([out], { type:'application/octet-stream' }), name: base + '.enc' };
 }
 
-/* 附件下载+解密：网络错误自动重试 3 次；密钥不匹配（认证失败）立即判定，不再浪费重试 */
+/* 附件下载+解密：网络错误自动重试 3 次（单次 60 秒超时）；密钥不匹配立即判定 */
 async function decryptFileBlob(url){
   let lastErr = null;
   for(let attempt = 0; attempt < 3; attempt++){
     if(attempt > 0) await new Promise(r => setTimeout(r, 1500));
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 60000);
     try{
-      const res = await fetch(url);
+      const res = await fetch(url, { signal: ctrl.signal });
       if(!res.ok) throw new Error('附件下载失败（' + res.status + '）');
       const buf = new Uint8Array(await res.arrayBuffer());
       const iv = buf.subarray(0, 12);
       const ct = buf.subarray(12);
       return await crypto.subtle.decrypt({ name:'AES-GCM', iv }, currentKey, ct);
     }catch(e){
+      clearTimeout(timer);
       lastErr = e;
       if(e && e.name === 'OperationError'){
         throw Object.assign(new Error('密钥不正确'), { auth: true });
       }
-      /* 网络/传输错误：继续重试 */
+      /* 网络/传输/超时错误：继续重试 */
+    } finally {
+      clearTimeout(timer);
     }
   }
   throw lastErr;
@@ -568,10 +575,19 @@ function clearBadKeys(){
 }
 
 /* ===== API ===== */
+/* API 请求：25 秒超时，超时/断网给出明确提示，绝不无限挂起 */
 async function apiFetch(url, options){
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 25000);
   let res;
-  try{ res = await fetch(url, options); }
-  catch(e){ throw new Error('网络请求失败，请检查网络连接'); }
+  try{
+    res = await fetch(url, Object.assign({ signal: ctrl.signal }, options || {}));
+  }catch(e){
+    clearTimeout(timer);
+    if(e && e.name === 'AbortError') throw new Error('连接后端超时，请检查网络后自动重试');
+    throw new Error('无法连接后端，请检查网络');
+  }
+  clearTimeout(timer);
   if(!res.ok){
     let msg = '请求失败（' + res.status + '）';
     try{ const j = await res.json(); if(j.message) msg = j.message; }catch(e){}
@@ -956,6 +972,7 @@ async function sendMessage(){
 }
 
 /* ===== 刷新 & 轮询 ===== */
+let connRetryTimer = null;
 async function refresh(manual){
   try{
     const rows = await loadMessages();
@@ -964,14 +981,18 @@ async function refresh(manual){
     renderFeed(manual && had === 0);
     setConn(true);
   }catch(e){
-    setConn(false);
+    setConn(false, e.message);
     if(manual) toast(e.message, true);
+    /* 连接失败后 8 秒自动重试，网络恢复后自动连上，无需手动刷新 */
+    clearTimeout(connRetryTimer);
+    connRetryTimer = setTimeout(() => { if(!busy) refresh(false); }, 8000);
   }
 }
-function setConn(ok){
+function setConn(ok, msg){
   connEl.classList.toggle('on', ok);
   connEl.classList.toggle('off', !ok);
-  connText.textContent = ok ? '已连接' : '连接失败';
+  connText.textContent = ok ? '已连接' : (msg || '连接失败');
+  connText.title = ok ? '' : (msg || '');
 }
 function autoGrow(){
   msgInput.style.height = 'auto';
@@ -1031,10 +1052,22 @@ document.addEventListener('drop', e => {
 });
 
 /* ===== 初始化 ===== */
-loadNick();
-loadBadKeys();
-renderFeed(false);
-loadSavedKey().finally(() => refresh(false));
+/* 初始化：try-catch 保护，任何单点错误都不影响页面交互（密钥按钮始终可点） */
+try{
+  loadNick();
+  loadBadKeys();
+  renderFeed(false);
+}catch(e){
+  console.error('初始化错误:', e);
+}
+if(!CRYPTO_OK){
+  toast('当前环境不支持加密，请通过 https 打开页面', true);
+  refresh(false);
+}else{
+  loadSavedKey()
+    .then(() => refresh(false))
+    .catch(e => console.error('密钥加载失败:', e));
+}
 setInterval(() => { if(document.visibilityState === 'visible' && !busy) refresh(false); }, POLL_MS);
 </script>
 </body>
