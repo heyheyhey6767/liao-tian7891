@@ -566,36 +566,62 @@ function renderDirectFile(container, f){
     container.appendChild(a);
   }
 }
-async function renderAttachment(container, row){
-  const url = safeUrl(row.file_url);
-  if(!url){ container.innerHTML = ''; return; }
-  const nameRes = await decryptText(row.file_name);
-  const name = nameRes.ok ? (nameRes.text || '附件') : (nameRes.needKey ? '附件（需密钥）' : '附件');
-  const kind = row.file_type ? fileKind(row.file_type, name) : 'file';
+/* 多附件渲染：file_url 可能是 JSON 数组（新）或单个 URL（旧数据），逐个渲染 */
+function parseAttachList(raw){
+  if(typeof raw !== 'string' || !raw) return [];
+  let urls = [];
+  if(raw.trim().startsWith('[')){
+    try{ urls = JSON.parse(raw); }catch(e){ urls = []; }
+  } else {
+    urls = [raw];
+  }
+  return urls.filter(u => typeof u === 'string' && /^https?:\/\//i.test(u));
+}
+function parseAttachMeta(raw){
+  if(typeof raw !== 'string' || !raw) return [];
+  let arr = [];
+  if(raw.trim().startsWith('[')){
+    try{ arr = JSON.parse(raw); }catch(e){ arr = []; }
+  } else {
+    arr = [raw];
+  }
+  return arr;
+}
+async function renderOneFile(container, url, name, type){
+  const kind = type ? fileKind(type, name) : 'file';
   const lastSeg = decodeURIComponent(url.split('/').pop() || '');
   const isEnc = /\.enc($|\?)/i.test(lastSeg);
   if(!isEnc){
-    container.innerHTML = '';
-    renderDirectFile(container, { url, name, kind, type: row.file_type });
+    renderDirectFile(container, { url, name, kind, type });
     return;
   }
   if(!currentKey){
-    container.innerHTML = '';
     container.appendChild(noteEl('加密附件：设置房间密钥后可查看'));
     return;
   }
   try{
     const pt = await decryptFileBlob(url);
-    const type = row.file_type || 'application/octet-stream';
-    const blob = new Blob([pt], { type });
+    const blob = new Blob([pt], { type: type || 'application/octet-stream' });
     const blobUrl = URL.createObjectURL(blob);
     blobUrls.add(blobUrl);
-    container.innerHTML = '';
     renderDirectFile(container, { url: blobUrl, name, kind, type, size: blob.size, dl: name });
   }catch(e){
-    container.innerHTML = '';
     container.appendChild(noteEl('附件无法解密（房间密钥不正确）'));
   }
+}
+async function renderAttachment(container, row){
+  const urls = parseAttachList(row.file_url);
+  if(urls.length === 0){ container.innerHTML = ''; return; }
+  const nameRes = await decryptText(row.file_name);
+  const nameText = nameRes.ok ? (nameRes.text || '') : '';
+  const names = nameText ? parseAttachMeta(nameText) : [];
+  const types = parseAttachMeta(row.file_type);
+  container.innerHTML = '';
+  await Promise.all(urls.map((url, i) => {
+    const name = (names && names[i]) || ('附件' + (i + 1));
+    const type = (types && types[i]) || 'application/octet-stream';
+    return renderOneFile(container, url, name, type);
+  }));
 }
 const attachIO = ('IntersectionObserver' in window)
   ? new IntersectionObserver(entries => {
@@ -765,9 +791,10 @@ async function sendMessage(){
     const row = {
       nickname: await encryptText((nickInput.value.trim() || '匿名').slice(0, 20)),
       content: await encryptText(content),
-      file_url: uploaded.length ? uploaded[0].url : null,
-      file_name: uploaded.length ? await encryptText(uploaded[0].name) : null,
-      file_type: uploaded.length ? uploaded[0].type : null
+      /* 多附件：打包成 JSON 数组存进单值字段（兼容旧版单附件数据） */
+      file_url: uploaded.length ? JSON.stringify(uploaded.map(u => u.url)) : null,
+      file_name: uploaded.length ? await encryptText(JSON.stringify(uploaded.map(u => u.name))) : null,
+      file_type: uploaded.length ? JSON.stringify(uploaded.map(u => u.type)) : null
     };
     const created = await apiFetch(SUPABASE_URL + TABLE_PATH, {
       method: 'POST',
