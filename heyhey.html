@@ -993,7 +993,7 @@ $('refreshBtn').addEventListener('click', () => {
   refresh(true).finally(() => { b.style.opacity = 1; });
 });
 nickInput.addEventListener('change', saveNick);
-Input.addEventListener('blur', () => { if(!nickInput.value.trim()) nickInput.value = '匿名'; });
+nickInput.addEventListener('blur', () => { if(!nickInput.value.trim()) nickInput.value = '匿名'; });
 
 /* 密钥面板 */
 keyBtn.addEventListener('click', e => {
