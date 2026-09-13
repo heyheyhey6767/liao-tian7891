@@ -2,7 +2,7 @@
   "name": "小鸟贴吧",
   "short_name": "小鸟贴吧",
   "description": "端到端加密社区留言板",
-  "start_url": "./2.html",
+  "start_url": "./heyhey.html",
   "scope": "./",
   "display": "standalone",
   "background_color": "#F4F5F7",
