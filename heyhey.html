@@ -108,9 +108,60 @@
   /* 附件展示 */
   .post-files{display:flex; flex-direction:column; gap:8px; margin-top:10px;}
   .file-img{border-radius:var(--radius-s); max-width:100%; max-height:340px; width:auto; display:block; object-fit:cover; border:1px solid var(--border); cursor:zoom-in;}
-  .file-media{width:100%; display:flex; justify-content:center; background:#0B0E14; border-radius:var(--radius-s); overflow:hidden;}
+  .file-media{position:relative; width:100%; display:flex; justify-content:center; background:#0B0E14; border-radius:var(--radius-s); overflow:hidden;}
   .file-media video{max-width:100%; max-height:400px; width:auto; height:auto; display:block; object-fit:contain; background:#0B0E14;}
   .file-media audio{width:100%;}
+  .file-img-wrap{position:relative; max-width:100%; line-height:0;}
+  .video-zoom{
+    position:absolute; right:10px; bottom:10px; width:42px; height:42px; border-radius:50%;
+    background:rgba(255,255,255,.30); color:#fff; display:flex; align-items:center; justify-content:center;
+    border:1px solid rgba(255,255,255,.6); z-index:5;
+    box-shadow:0 2px 10px rgba(0,0,0,.45);
+    transform:translateZ(0); -webkit-transform:translateZ(0);
+    -webkit-tap-highlight-color:transparent;
+    transition:background .15s, transform .15s;
+  }
+  .video-zoom:hover{background:rgba(255,255,255,.48); transform:translateZ(0) scale(1.06);}
+  .video-zoom:active{background:rgba(255,255,255,.65);}
+  .video-zoom svg{width:19px; height:19px; filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));}
+
+  /* ===== 媒体放大浮层（图片灯箱 / 视频全屏播放，自带退出键） ===== */
+  body.ov-open{overflow:hidden;}
+  .media-overlay{
+    position:fixed; inset:0; z-index:100; background:rgba(8,10,14,.94);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:14px; animation:fadeIn .18s ease both;
+  }
+  .media-overlay .ov-stage{flex:1; width:100%; min-height:0; display:flex; align-items:center; justify-content:center;}
+  .media-overlay img.ov-img{max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; border-radius:6px;}
+  .media-overlay video.ov-video{
+    max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; background:#000; border-radius:6px;
+  }
+  /* 自动区分竖屏 / 横屏：竖屏视频放大后占满高度，横屏视频占满宽度 */
+  .media-overlay video.ov-video.portrait{height:100%; width:auto; max-width:100%;}
+  .media-overlay video.ov-video.landscape{width:100%; height:auto; max-height:100%;}
+  .media-overlay audio.ov-audio{width:92%;}
+  .ov-close{
+    position:absolute; top:calc(12px + env(safe-area-inset-top)); right:12px; width:44px; height:44px;
+    border-radius:50%; background:rgba(255,255,255,.16); color:#fff; display:flex; align-items:center; justify-content:center;
+    z-index:3; transition:background .15s;
+  }
+  .ov-close:hover{background:rgba(255,255,255,.34);}
+  .ov-close svg{width:21px; height:21px;}
+  .ov-hint{position:absolute; top:calc(18px + env(safe-area-inset-top)); left:16px; font-size:11px; color:rgba(255,255,255,.5); z-index:3;}
+  .ov-bar{
+    margin-top:14px; display:flex; align-items:center; gap:12px; max-width:100%;
+    background:rgba(255,255,255,.09); border-radius:10px; padding:8px 12px;
+  }
+  .ov-bar .ov-name{font-size:13px; color:#E7EAEE; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:58vw;}
+  .ov-bar .ov-size{font-size:11.5px; color:rgba(231,234,238,.55); flex:none;}
+  .ov-dl{
+    flex:none; display:flex; align-items:center; gap:6px; background:var(--primary); color:#fff;
+    border-radius:8px; padding:8px 15px; font-size:12.5px; font-weight:700; text-decoration:none;
+    transition:background .15s;
+  }
+  .ov-dl:hover{background:var(--primary-strong);}
+  .ov-dl svg{width:14px; height:14px;}
   .file-card{
     display:flex; align-items:center; gap:10px; padding:9px 11px; border:1px solid var(--border);
     border-radius:var(--radius-s); background:var(--surface-2); text-decoration:none; color:var(--text);
@@ -433,6 +484,7 @@ async function setPassword(password){
   safeStore.set(LS_KEY, b64FromBytes(raw));
   clearBadKeys();
   invalidateCaches();
+  clearCardMap(); // 密钥已变：强制重建全部卡片，让所有消息用新密钥重新解密
   updateKeyUI();
   refresh(false);
   return true;
@@ -452,6 +504,7 @@ function clearKey(){
   currentKey = null;
   safeStore.remove(LS_KEY);
   invalidateCaches();
+  clearCardMap(); // 密钥已清：强制重建全部卡片，重新走"未设密钥"提示分支
   updateKeyUI();
   refresh(false);
 }
@@ -742,6 +795,76 @@ function noteEl(text){
   return d;
 }
 
+/* ===== 媒体放大浮层（图片灯箱 / 视频全屏播放，自带退出键；手机电脑通用） ===== */
+let activeOverlay = null;
+function ovIcon(name){
+  const icons = {
+    close:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>',
+    zoom:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>',
+    dl:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>'
+  };
+  return icons[name] || '';
+}
+function openMediaOverlay(kind, url, name, size){
+  closeMediaOverlay(true);
+  const ov = document.createElement('div'); ov.className = 'media-overlay';
+  const stage = document.createElement('div'); stage.className = 'ov-stage';
+  if(kind === 'image'){
+    const img = document.createElement('img');
+    img.className = 'ov-img'; img.src = url; img.alt = name || '图片';
+    stage.appendChild(img);
+  } else if(kind === 'video'){
+    const v = document.createElement('video');
+    v.className = 'ov-video'; v.src = url; v.controls = true; v.autoplay = true;
+    v.setAttribute('playsinline','');
+    /* 自动区分竖屏 / 横屏：加载元数据后按实际宽高比调整放大布局 */
+    v.addEventListener('loadedmetadata', () => {
+      if(v.videoWidth && v.videoHeight){
+        if(v.videoWidth < v.videoHeight){
+          v.classList.add('portrait'); v.classList.remove('landscape');
+        } else {
+          v.classList.add('landscape'); v.classList.remove('portrait');
+        }
+      }
+    });
+    stage.appendChild(v);
+  } else if(kind === 'audio'){
+    const a = document.createElement('audio');
+    a.className = 'ov-audio'; a.src = url; a.controls = true; a.autoplay = true;
+    stage.appendChild(a);
+  }
+  const close = document.createElement('button');
+  close.className = 'ov-close'; close.title = '退出（Esc）';
+  close.innerHTML = ovIcon('close');
+  close.addEventListener('click', e => { e.stopPropagation(); closeMediaOverlay(); });
+  const hint = document.createElement('div'); hint.className = 'ov-hint'; hint.textContent = kind === 'video' ? '点下方 ▶ 播放' : (kind === 'audio' ? '音频预览' : '图片预览');
+  const bar = document.createElement('div'); bar.className = 'ov-bar';
+  const nm = document.createElement('span'); nm.className = 'ov-name'; nm.textContent = name || '';
+  if(size){ const sz = document.createElement('span'); sz.className = 'ov-size'; sz.textContent = fmtSize(size); bar.appendChild(sz); }
+  const dl = document.createElement('a');
+  dl.className = 'ov-dl'; dl.href = url; dl.download = name || 'file'; dl.target = '_blank'; dl.rel = 'noopener';
+  dl.innerHTML = ovIcon('dl') + '下载';
+  bar.appendChild(nm); bar.appendChild(dl);
+  ov.appendChild(stage); ov.appendChild(close); ov.appendChild(hint); ov.appendChild(bar);
+  /* 点击遮罩空白处关闭（点击媒体本身不关闭） */
+  ov.addEventListener('click', e => { if(e.target === ov || e.target === stage) closeMediaOverlay(); });
+  document.body.appendChild(ov);
+  document.body.classList.add('ov-open');
+  activeOverlay = ov;
+}
+function closeMediaOverlay(skipPause){
+  if(activeOverlay){
+    if(!skipPause){
+      const m = activeOverlay.querySelector('video,audio');
+      if(m && typeof m.pause === 'function'){ try{ m.pause(); }catch(e){} }
+    }
+    activeOverlay.remove();
+    activeOverlay = null;
+  }
+  document.body.classList.remove('ov-open');
+}
+document.addEventListener('keydown', e => { if(e.key === 'Escape') closeMediaOverlay(); });
+
 /* 附件渲染（支持加密文件：下载→解密→blob 预览） */
 function renderDirectFile(container, f){
   if(f.kind === 'image'){
@@ -749,18 +872,26 @@ function renderDirectFile(container, f){
     a.href = f.url; a.target = '_blank'; a.rel = 'noopener';
     const img = document.createElement('img');
     img.className = 'file-img'; img.src = f.url; img.alt = f.name; img.loading = 'lazy';
+    img.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openMediaOverlay('image', f.url, f.name, f.size); });
     a.appendChild(img); container.appendChild(a);
   } else if(f.kind === 'video'){
     const wrap = document.createElement('div'); wrap.className = 'file-media';
     const v = document.createElement('video'); v.src = f.url; v.controls = true; v.preload = 'metadata'; v.setAttribute('playsinline','');
+    let zoom = null;
     /* 解码失败（如 HEVC 等浏览器不支持的编码）：给明确提示，不留下无声黑屏 */
     v.addEventListener('error', () => {
       if(v.error || v.networkState === v.NETWORK_NO_SOURCE){
         const note = noteEl('视频解码失败：该编码（如 HEVC）当前浏览器不支持，建议下载后本地播放');
         v.replaceWith(note);
+        if(zoom) zoom.remove();
       }
     });
-    wrap.appendChild(v); container.appendChild(wrap);
+    zoom = document.createElement('button');
+    zoom.className = 'video-zoom'; zoom.title = '放大播放';
+    zoom.innerHTML = ovIcon('zoom');
+    zoom.addEventListener('click', e => { e.stopPropagation(); openMediaOverlay('video', f.url, f.name, f.size); });
+    v.addEventListener('click', () => openMediaOverlay('video', f.url, f.name, f.size));
+    wrap.appendChild(v); wrap.appendChild(zoom); container.appendChild(wrap);
   } else if(f.kind === 'audio'){
     const wrap = document.createElement('div'); wrap.className = 'file-media';
     const a = document.createElement('audio'); a.src = f.url; a.controls = true; a.preload = 'metadata';
@@ -937,8 +1068,9 @@ const attachIO = ('IntersectionObserver' in window)
         if(en.isIntersecting){
           const el = en.target;
           attachIO.unobserve(el);
-          const row = messages[Number(el.dataset.idx)];
-          if(row) renderAttachment(el, row);
+          /* 兼容数字/字符串两种 id：dataset 里存的是字符串，cardMap 的 key 可能是数字 */
+          const entry = cardMap.get(el.dataset.id) || cardMap.get(Number(el.dataset.id));
+          if(entry) renderAttachment(el, entry.row);
         }
       });
     }, { rootMargin: '240px' })
@@ -977,40 +1109,72 @@ async function fillCard(card, row){
     }
   }
 }
+/* 已渲染卡片缓存：id -> {el, row}；增量刷新时复用，不重建（不打断正在播放的视频） */
+const cardMap = new Map();
+/* 清空卡片缓存：同步移除已渲染卡片，避免"Map 已清、DOM 残留旧卡"的竞态窗口 */
+function clearCardMap(){
+  for(const entry of cardMap.values()){ if(entry.el && entry.el.isConnected) entry.el.remove(); }
+  cardMap.clear();
+}
+function buildCard(row, i){
+  const card = document.createElement('article'); card.className = 'post-card';
+  card.dataset.id = row.id;
+  const head = document.createElement('div'); head.className = 'post-head';
+  const av = document.createElement('span'); av.className = 'avatar'; av.style.background = '#C9CFD8'; av.textContent = '?';
+  const meta = document.createElement('div'); meta.className = 'post-meta';
+  const nick = document.createElement('span'); nick.className = 'nickname'; nick.textContent = '解密中…';
+  const time = document.createElement('span'); time.className = 'post-time'; time.textContent = fmtTime(row.created_at);
+  meta.appendChild(nick); meta.appendChild(time);
+  const floor = document.createElement('span'); floor.className = 'floor'; floor.textContent = '#' + (i + 1);
+  head.appendChild(av); head.appendChild(meta); head.appendChild(floor);
+  card.appendChild(head);
+  if(row.content){
+    const body = document.createElement('div'); body.className = 'post-content';
+    const d = document.createElement('span'); d.className = 'decrypting'; d.innerHTML = '<span class="spinner"></span>解密中…';
+    body.appendChild(d); card.appendChild(body);
+  }
+  if(row.file_url){
+    const files = document.createElement('div'); files.className = 'post-files';
+    files.dataset.id = row.id;
+    const d = document.createElement('div'); d.className = 'decrypting'; d.innerHTML = '<span class="spinner"></span>解密附件…';
+    files.appendChild(d);
+    card.appendChild(files);
+    if(attachIO) attachIO.observe(files); else renderAttachment(files, row);
+  }
+  return card;
+}
+/* 增量渲染：只新增/删除/排序，已存在的卡片原地复用（正在播放的视频/音频不会被刷新打断） */
 function renderFeed(scrollBottom){
-  feedEl.innerHTML = '';
   if(messages.length === 0){
+    feedEl.innerHTML = '';
+    clearCardMap();
     emptyEl.hidden = false; loadingEl.hidden = true; return;
   }
   emptyEl.hidden = true; loadingEl.hidden = true;
+  const ids = new Set(messages.map(m => m.id));
+  /* 1. 移除已消失的卡片 */
+  for(const [id, entry] of cardMap){
+    if(!ids.has(id)){ entry.el.remove(); cardMap.delete(id); }
+  }
+  /* 2. 按新顺序逐个归位；缺失的现场新建（最新在上：messages[0] 最新） */
+  const frag = document.createDocumentFragment();
   messages.forEach((row, i) => {
-    const card = document.createElement('article'); card.className = 'post-card';
-    const head = document.createElement('div'); head.className = 'post-head';
-    const av = document.createElement('span'); av.className = 'avatar'; av.style.background = '#C9CFD8'; av.textContent = '?';
-    const meta = document.createElement('div'); meta.className = 'post-meta';
-    const nick = document.createElement('span'); nick.className = 'nickname'; nick.textContent = '解密中…';
-    const time = document.createElement('span'); time.className = 'post-time'; time.textContent = fmtTime(row.created_at);
-    meta.appendChild(nick); meta.appendChild(time);
-    const floor = document.createElement('span'); floor.className = 'floor'; floor.textContent = '#' + (i + 1);
-    head.appendChild(av); head.appendChild(meta); head.appendChild(floor);
-    card.appendChild(head);
-    if(row.content){
-      const body = document.createElement('div'); body.className = 'post-content';
-      const d = document.createElement('span'); d.className = 'decrypting'; d.innerHTML = '<span class="spinner"></span>解密中…';
-      body.appendChild(d); card.appendChild(body);
+    let entry = cardMap.get(row.id);
+    if(!entry){
+      entry = { el: buildCard(row, i), row };
+      cardMap.set(row.id, entry);
+      fillCard(entry.el, row);
+    } else {
+      /* 已存在：只更新楼层号与相对时间，不改动其它 DOM（播放中的媒体不受影响） */
+      const floor = entry.el.querySelector('.floor');
+      if(floor) floor.textContent = '#' + (i + 1);
+      const time = entry.el.querySelector('.post-time');
+      if(time) time.textContent = fmtTime(row.created_at);
     }
-    if(row.file_url){
-      const files = document.createElement('div'); files.className = 'post-files';
-      files.dataset.idx = i;
-      files.dataset.id = row.id;
-      const d = document.createElement('div'); d.className = 'decrypting'; d.innerHTML = '<span class="spinner"></span>解密附件…';
-      files.appendChild(d);
-      card.appendChild(files);
-      if(attachIO) attachIO.observe(files); else renderAttachment(files, row);
-    }
-    feedEl.appendChild(card);
-    fillCard(card, row);
+    frag.appendChild(entry.el);
   });
+  feedEl.innerHTML = '';
+  feedEl.appendChild(frag);
   if(scrollBottom) window.scrollTo({ top: 0, behavior: 'smooth' }); // 最新在上：发送后回到顶部
 }
 
@@ -1198,12 +1362,25 @@ function setConn(ok, msg){
   connText.textContent = ok ? '已连接' : (msg || '连接失败');
   connText.title = ok ? '' : (msg || '');
 }
+/* 是否有附件正在下载/解密中：下载期间暂停自动轮询，避免抢带宽拖慢大文件 */
+function hasPendingDownload(){
+  for(const e of attachCache.values()){ if(e && !e.files) return true; }
+  return false;
+}
 function autoGrow(){
   msgInput.style.height = 'auto';
   msgInput.style.height = Math.min(msgInput.scrollHeight, 130) + 'px';
 }
 
 /* ===== 事件 ===== */
+/* 媒体互斥：同一时间只允许一个视频/音频播放，新的开始播放时自动暂停其它所有媒体 */
+document.addEventListener('play', e => {
+  const t = e.target;
+  if(!t || (t.tagName !== 'VIDEO' && t.tagName !== 'AUDIO')) return;
+  document.querySelectorAll('video,audio').forEach(m => {
+    if(m !== t && !m.paused) m.pause();
+  });
+}, true);
 fileBtn.addEventListener('click', () => fileInput.click());
 fileInput.addEventListener('change', () => { addFiles(fileInput.files); fileInput.value = ''; });
 msgInput.addEventListener('input', autoGrow);
@@ -1289,7 +1466,8 @@ if(!CRYPTO_OK){
     .then(() => refresh(false))
     .catch(e => console.error('密钥加载失败:', e));
 }
-setInterval(() => { if(document.visibilityState === 'visible' && !busy) refresh(false); }, POLL_MS);
+/* 附件下载/解密进行中暂停轮询，下载完自动恢复；避免与下载抢带宽 */
+setInterval(() => { if(document.visibilityState === 'visible' && !busy && !hasPendingDownload()) refresh(false); }, POLL_MS);
 </script>
 </body>
 </html>
