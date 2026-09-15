@@ -667,7 +667,7 @@ async function apiFetch(url, options){
   return res.json();
 }
 async function loadMessages(){
-  const url = SUPABASE_URL + TABLE_PATH + '?select=*&order=created_at.desc&limit=200';
+  const url = SUPABASE_URL + TABLE_PATH + '?select=*&order=created_at.desc&limit=1000';
   const rows = await apiFetch(url, { headers: AUTH_HEADERS });
   /* 排序：最新在上（messages[0] 为最新，末尾为最旧） */
   return rows;
