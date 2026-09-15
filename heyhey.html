@@ -445,10 +445,27 @@ function extIcon(name){
   return 'file';
 }
 function fileKind(mime, name){
-  if(mime && mime.startsWith('image/')) return 'image';
-  if(mime && mime.startsWith('video/')) return 'video';
-  if(mime && mime.startsWith('audio/')) return 'audio';
+  if(mime && /^image\//i.test(mime)) return 'image';
+  if(mime && /^video\//i.test(mime)) return 'video';
+  if(mime && /^audio\//i.test(mime)) return 'audio';
+  /* 旧消息可能没有 file_type 字段：按扩展名兜底，照片视频照样以内联媒体显示 */
+  const e = (name || '').toLowerCase().split('.').pop() || '';
+  if(['jpg','jpeg','png','gif','webp','bmp','avif','svg','ico','heic','heif'].includes(e)) return 'image';
+  if(['mp4','webm','mov','mkv','3gp','m4v','avi'].includes(e)) return 'video';
+  if(['mp3','wav','m4a','aac','ogg','flac','opus','amr'].includes(e)) return 'audio';
   return 'file';
+}
+
+/* 按文件名扩展名反推 MIME（旧消息缺 file_type 时，让解密后的图片/视频用对类型渲染） */
+function mimeFromName(name, fallback){
+  const e = (name || '').toLowerCase().split('.').pop() || '';
+  const map = {
+    jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', gif:'image/gif', webp:'image/webp',
+    bmp:'image/bmp', avif:'image/avif', svg:'image/svg+xml', ico:'image/x-icon',
+    mp4:'video/mp4', webm:'video/webm', mov:'video/quicktime', m4v:'video/x-m4v',
+    mp3:'audio/mpeg', wav:'audio/wav', m4a:'audio/mp4', aac:'audio/aac', ogg:'audio/ogg', flac:'audio/flac'
+  };
+  return map[e] || fallback || 'application/octet-stream';
 }
 
 /* ===== 端到端加密（AES-GCM 256 + PBKDF2） ===== */
@@ -1000,6 +1017,15 @@ function openMediaOverlay(kind, url, name, size){
     const img = document.createElement('img');
     img.className = 'ov-img'; img.src = url; img.alt = name || '图片';
     img.addEventListener('load', () => fitMediaAuto(img));
+    /* 放大后仍加载失败：给明确提示 + 下载入口，不再一片黑 */
+    img.addEventListener('error', () => {
+      const note = noteEl('图片无法显示（附件缺失或格式不支持）');
+      const btn = document.createElement('button');
+      btn.className = 'retry-btn'; btn.textContent = '下载原文件';
+      btn.addEventListener('click', e => { e.stopPropagation(); downloadDecrypted(name || 'file', url); });
+      note.appendChild(btn);
+      stage.replaceChildren(note);
+    });
     stage.appendChild(img);
     mediaEl = img;
   } else if(kind === 'video'){
@@ -1089,6 +1115,15 @@ function renderDirectFile(container, f){
     const img = document.createElement('img');
     img.className = 'file-img'; img.src = f.url; img.alt = f.name; img.loading = 'lazy';
     img.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openMediaOverlay('image', f.url, f.name, f.size); });
+    /* 图片加载失败（附件被清理/网络失败/格式不支持）：给明确提示 + 下载入口，不留黑图 */
+    img.addEventListener('error', () => {
+      const note = noteEl('图片无法显示（附件缺失或格式不支持）');
+      const btn = document.createElement('button');
+      btn.className = 'retry-btn'; btn.textContent = '下载原文件';
+      btn.addEventListener('click', e2 => { e2.stopPropagation(); downloadDecrypted(f.dl || f.name || 'file', f.url); });
+      note.appendChild(btn);
+      a.replaceWith(note);
+    });
     a.appendChild(img); container.appendChild(a);
   } else if(f.kind === 'video'){
     const wrap = document.createElement('div'); wrap.className = 'file-media';
@@ -1174,7 +1209,7 @@ async function renderOneFile(id, url, name, type, prog){
       paintProgress(prog);
     });
     if(prog){ prog.phase = 'decrypt'; paintProgress(prog); }
-    const blob = new Blob([pt], { type: type || 'application/octet-stream' });
+    const blob = new Blob([pt], { type: mimeFromName(name, type) });
     const blobUrl = URL.createObjectURL(blob);
     return { url: blobUrl, name, kind, type, size: blob.size, dl: name, blobUrl, ok: true };
   }catch(e){
