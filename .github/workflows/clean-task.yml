@@ -1,0 +1,13 @@
+name:定时触发清理
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  call_clean:
+    runs-on: ubuntu-latest
+    steps:
+      - name:调用清理接口
+        run: |
+          curl -X POST "${{ secrets.FUNC_URL }}" -H "Authorization: ${{ secrets.FUNC_AUTH }}"
