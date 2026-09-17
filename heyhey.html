@@ -372,13 +372,15 @@ const ANON_KEY     = 'sb_publishable_5mocRK-Zci-bnVLQ92YCRA_m4cM_iiV';
  * MAX_FILES      ：一次最多发送的附件数量。调大后文件选择器会自动恢复多选。
  * MAX_FILE_SIZE  ：单个文件大小上限。注意上传前会整体读入内存加密，调大需留意内存占用。
  * MAX_TOTAL_SIZE ：单次发送全部附件的累积大小上限。
+ * MAX_MESSAGES   ：页面最多保留的消息条数。超出后自动删除最旧消息（含其全部附件，
+ *                  前端显示与后端存储同步清理，直至条数 ≤ 该值）。
  * BUCKET_LIMIT   ：Supabase 存储桶空间估算上限，用于"存满时自动删最旧附件"。
  *                  当前 1GB 对应 Supabase 免费配额；若你的桶实际容量是 150MB，
  *                  请改为 150 * 1024 * 1024，否则存满后上传会直接失败。 */
 const MAX_FILES      = 1;                    // 一次最多发送的附件数量
 const MAX_FILE_SIZE  = 50 * 1024 * 1024;     // 单个文件上限 50MB
 const MAX_TOTAL_SIZE = 150 * 1024 * 1024;    // 单次发送附件累积上限 150MB
-const MAX_MESSAGES   = 100;                  // 页面最多保留消息条数（超出自动清理最旧）
+const MAX_MESSAGES   = 15;                   // 页面最多保留消息条数（超出自动清理最旧消息，附件一并删）
 const BUCKET_LIMIT   = 1024 * 1024 * 1024;   // 桶空间估算上限 1GB（Supabase 免费配额）
 const POLL_MS        = 20000;
 
@@ -811,6 +813,7 @@ async function removeOldestMessage(){
   if(ok){
     messages.pop(); // 新排序：最旧在末尾，删末尾
     usageCache.t = 0; // 桶用量失效：附件已删，下次重扫才准确
+    revokeAttach(m.id); // 释放该消息已解密的 blob 内存
     attachCache.delete(m.id);
     textCache.delete(m.id);
   }
@@ -863,12 +866,12 @@ async function ensureBucketSpace(need){
 }
 /* 消息数超限时：删除"超出部分"（overflowRows）的后端数据（附件 + 行）。
  * 前端显示层已在 refresh / sendMessage 中立即截断到 MAX_MESSAGES 条。
- * 每轮最多处理 30 条；剩余部分由下一轮刷新时重新识别、继续删除，直至收敛。 */
+ * 每轮最多处理 100 条；剩余部分由下一轮刷新时重新识别、继续删除，直至收敛。 */
 async function cleanupMessages(){
   if(cleanupLock || !overflowRows.length) return;
   cleanupLock = true;
   try{
-    const targets = overflowRows.splice(0, 30);
+    const targets = overflowRows.splice(0, 100);
     const ids = targets.map(m => m.id);
     /* 1. 删附件（失败自动重试一次；仍失败则交给 removeOrphanFiles 兜底） */
     for(const m of targets){
@@ -889,6 +892,7 @@ async function cleanupMessages(){
     if(ok){
       usageCache.t = 0; // 附件已删：桶用量失效，下次重扫
       for(const id of ids){
+        revokeAttach(id); // 释放该消息已解密的 blob 内存，前端附件彻底清除
         attachCache.delete(id);
         textCache.delete(id);
       }
