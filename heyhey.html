@@ -28,7 +28,6 @@
   button{font-family:inherit; cursor:pointer; border:none; background:none; color:inherit;}
   input,textarea{font-family:inherit; color:inherit;}
   a{color:var(--primary);}
-
   /* ===== 顶部栏（fixed 固定，滑动不再消失） ===== */
   .topbar{
     position:fixed; top:0; left:0; right:0; z-index:20; background:var(--surface);
@@ -53,7 +52,6 @@
   .icon-btn:hover{background:var(--surface-2); color:var(--text);}
   .icon-btn svg{width:16px; height:16px;}
   .icon-btn.key-on{color:var(--ok); border-color:var(--ok); background:var(--ok-weak);}
-
   /* 密钥面板 */
   .key-panel{
     position:absolute; top:calc(100% + 8px); right:0; width:320px; max-width:calc(100vw - 28px);
@@ -80,7 +78,6 @@
   .key-btn-ghost:hover{background:var(--surface-2);}
   .key-status{font-size:12px; color:var(--text-3); margin-top:10px; display:flex; align-items:center; gap:6px; line-height:1.5;}
   .key-status.on{color:var(--ok);}
-
   /* ===== 消息流 ===== */
   main{flex:1; width:100%; max-width:760px; margin:0 auto; padding:62px 14px 130px; display:flex; flex-direction:column; gap:12px;}
   .feed{display:flex; flex-direction:column; gap:12px;}
@@ -104,7 +101,6 @@
   .post-content{font-size:14.5px; line-height:1.75; word-break:break-word; white-space:pre-wrap; overflow-wrap:anywhere;}
   .decrypting{color:var(--text-3); font-size:12.5px; display:flex; align-items:center; gap:7px; padding:4px 0;}
   .decrypting .spinner{width:13px; height:13px; border-width:2px;}
-
   /* 附件展示 */
   .post-files{display:flex; flex-direction:column; gap:8px; margin-top:10px;}
   .file-img{border-radius:var(--radius-s); max-width:100%; max-height:340px; width:auto; display:block; object-fit:cover; border:1px solid var(--border); cursor:zoom-in;}
@@ -124,7 +120,6 @@
   .video-zoom:hover{background:rgba(255,255,255,.48); transform:translateZ(0) scale(1.06);}
   .video-zoom:active{background:rgba(255,255,255,.65);}
   .video-zoom svg{width:19px; height:19px; filter:drop-shadow(0 1px 2px rgba(0,0,0,.5));}
-
   /* ===== 媒体放大浮层（图片灯箱 / 视频全屏播放，自带退出键；自动横竖屏 + 全屏铺满） ===== */
   body.ov-open{overflow:hidden;}
   .media-overlay{
@@ -195,7 +190,6 @@
     padding:3px 10px; font-size:12px; color:var(--primary); background:var(--surface); transition:background .15s;
   }
   .file-note .retry-btn:hover{background:var(--surface-2);}
-
   /* 空态 / 加载态 */
   .empty{
     text-align:center; padding:64px 20px; color:var(--text-2);
@@ -206,7 +200,6 @@
   .loading{display:flex; justify-content:center; padding:40px 0; color:var(--text-3); font-size:13px;}
   .spinner{width:18px; height:18px; border:2px solid var(--border); border-top-color:var(--primary); border-radius:50%; animation:spin .7s linear infinite;}
   @keyframes spin{to{transform:rotate(360deg);}}
-
   /* ===== 底部输入区（fixed 固定，随输入法面板自动上移） ===== */
   .composer-wrap{
     position:fixed; left:0; right:0; bottom:calc(var(--kb-height, 0px) + env(safe-area-inset-bottom)); z-index:20;
@@ -253,7 +246,6 @@
   .att-sum{font-size:12px; color:var(--primary); font-weight:700; flex:none;}
   .enc-hint{font-size:12px; color:var(--ok); display:flex; align-items:center; gap:4px; font-weight:500;}
   .enc-hint svg{width:12px; height:12px;}
-
   /* Toast */
   .toast{
     position:fixed; left:50%; bottom:calc(86px + env(safe-area-inset-bottom)); transform:translateX(-50%);
@@ -263,7 +255,6 @@
   }
   .toast.err{background:var(--danger);}
   @keyframes toastIn{from{opacity:0; transform:translate(-50%,8px);} to{opacity:1; transform:translate(-50%,0);}}
-
   /* 响应式 */
   @media (max-width:560px){
     main{padding:58px 10px 128px;}
@@ -296,7 +287,6 @@
 </style>
 </head>
 <body>
-
 <header class="topbar">
   <div class="brand">
     <span class="brand-logo">
@@ -325,7 +315,6 @@
     </div>
   </div>
 </header>
-
 <main>
   <div id="feed" class="feed"></div>
   <div id="emptyState" class="empty" hidden>
@@ -335,7 +324,6 @@
   </div>
   <div id="loading" class="loading"><div class="spinner"></div></div>
 </main>
-
 <footer class="composer-wrap">
   <div class="composer-inner">
     <div id="attachPreview" class="attach-preview" hidden></div>
@@ -358,9 +346,7 @@
     </div>
   </div>
 </footer>
-
 <div id="toast" class="toast" hidden></div>
-
 <script>
 /* ===== 配置（来自你的 Supabase 项目） ===== */
 const SUPABASE_URL = 'https://gbemkxwizbceqmsrerix.supabase.co';
@@ -372,29 +358,28 @@ const ANON_KEY     = 'sb_publishable_5mocRK-Zci-bnVLQ92YCRA_m4cM_iiV';
  * MAX_FILES      ：一次最多发送的附件数量。调大后文件选择器会自动恢复多选。
  * MAX_FILE_SIZE  ：单个文件大小上限。注意上传前会整体读入内存加密，调大需留意内存占用。
  * MAX_TOTAL_SIZE ：单次发送全部附件的累积大小上限。
- * MAX_MESSAGES   ：页面最多保留的消息条数。超出后自动删除最旧消息（含其全部附件，
- *                  前端显示与后端存储同步清理，直至条数 ≤ 该值）。
- * BUCKET_LIMIT   ：Supabase 存储桶空间估算上限，用于"存满时自动删最旧附件"。
- *                  当前 1GB 对应 Supabase 免费配额；若你的桶实际容量是 150MB，
- *                  请改为 150 * 1024 * 1024，否则存满后上传会直接失败。 */
+ * MAX_MESSAGES   ：页面最多显示的消息条数（只影响前端展示；后端数据清理已由
+ *                  Edge Function「super-processor」负责，GitHub Actions 每10分钟
+ *                  自动触发一次，会同步删除超限旧消息与附件、孤儿文件、超容量文件）。 */
 const MAX_FILES      = 1;                    // 一次最多发送的附件数量
 const MAX_FILE_SIZE  = 50 * 1024 * 1024;     // 单个文件上限 50MB
 const MAX_TOTAL_SIZE = 150 * 1024 * 1024;    // 单次发送附件累积上限 150MB
-const MAX_MESSAGES   = 15;                   // 页面最多保留消息条数（超出自动清理最旧消息，附件一并删）
-const BUCKET_LIMIT   = 1024 * 1024 * 1024;   // 桶空间估算上限 1GB（Supabase 免费配额）
+const MAX_MESSAGES   = 15;                   // 页面最多显示的消息条数（超出只隐藏最旧，后端由定时任务清理）
 const POLL_MS        = 20000;
-
 const AUTH_HEADERS = {
   'apikey': ANON_KEY,
   'Authorization': 'Bearer ' + ANON_KEY,
   'Content-Type': 'application/json'
 };
-
+/* 附件下载专用请求头：Storage 读取需要携带 anon 认证（否则私有/受保护桶下载会 401/403） */
+const DL_HEADERS = {
+  'apikey': ANON_KEY,
+  'Authorization': 'Bearer ' + ANON_KEY
+};
 /* ===== 状态 ===== */
 let messages = [];        // 最新在上（messages[0] 最新，末尾最旧）
 let pendingFiles = [];    // 待发送附件 {file}
 let busy = false;
-
 /* ===== DOM ===== */
 const $ = id => document.getElementById(id);
 const feedEl = $('feed'), emptyEl = $('emptyState'), loadingEl = $('loading');
@@ -403,7 +388,6 @@ const fileInput = $('fileInput'), fileBtn = $('fileBtn'), msgInput = $('msgInput
 const nickInput = $('nickInput'), attachPreview = $('attachPreview'), toastEl = $('toast'), attSummary = $('attSummary');
 const keyBtn = $('keyBtn'), keyPanel = $('keyPanel'), keyInput = $('keyInput');
 const keyApply = $('keyApply'), keyClear = $('keyClear'), keyStatus = $('keyStatus'), encHint = $('encHint');
-
 /* ===== 昵称 ===== */
 const LS_NICK = 'tieba_nick_v1';
 /* localStorage 安全封装：隐私模式/被禁用时静默降级，避免初始化中断导致页面卡在加载 */
@@ -419,7 +403,6 @@ function loadNick(){
   return n;
 }
 function saveNick(){ safeStore.set(LS_NICK, nickInput.value.trim() || '匿名'); }
-
 /* ===== 工具 ===== */
 function fmtSize(b){
   if(b < 1024) return b + ' B';
@@ -470,7 +453,6 @@ function fileKind(mime, name){
   if(['mp3','wav','m4a','aac','ogg','flac','opus','amr'].includes(e)) return 'audio';
   return 'file';
 }
-
 /* 按文件名扩展名反推 MIME（旧消息缺 file_type 时，让解密后的图片/视频用对类型渲染） */
 function mimeFromName(name, fallback){
   const e = (name || '').toLowerCase().split('.').pop() || '';
@@ -482,7 +464,6 @@ function mimeFromName(name, fallback){
   };
   return map[e] || fallback || 'application/octet-stream';
 }
-
 /* ===== 端到端加密（AES-GCM 256 + PBKDF2） ===== */
 const LS_KEY = 'tieba_key_v1';
 const KEY_SALT = new TextEncoder().encode('xiao-niao-tieba::v1');
@@ -490,7 +471,6 @@ const ENC_PREFIX = 'enc:';
 let currentKey = null;
 /* Web Crypto 需要安全上下文（https / localhost）。file:// 在部分移动浏览器不可用，提前检测并提示 */
 const CRYPTO_OK = !!(window.crypto && window.crypto.subtle);
-
 function b64FromBytes(buf){
   const bytes = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
   let bin = '';
@@ -553,7 +533,6 @@ function updateKeyUI(){
   keyStatus.classList.toggle('on', !!currentKey);
   encHint.hidden = !currentKey;
 }
-
 /* 文本加解密：enc:base64(iv):base64(密文) */
 async function encryptText(plain){
   if(!plain) return '';
@@ -577,7 +556,6 @@ async function decryptText(payload){
     return { ok:false, needKey:false, text:'' };
   }
 }
-
 /* 附件加解密：文件整体加密后上传（密文文件），读取时下载解密 */
 async function encryptFile(file){
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -589,13 +567,14 @@ async function encryptFile(file){
   const base = (file.name || 'file').replace(/\.[^.]+$/, '') || 'file';
   return { blob: new Blob([out], { type:'application/octet-stream' }), name: base + '.enc' };
 }
-/* 附件下载+解密：流式下载实时显示进度；网络错误自动重试 2 次（单次 120 秒超时）；密钥不匹配立即判定 */
+/* 附件下载+解密：流式下载实时显示进度；网络错误自动重试 2 次（单次 120 秒超时）；密钥不匹配立即判定
+ * 下载必须携带 anon 认证头（Storage 非 public 端点/受保护桶匿名请求会 401/403，导致附件全部显示失败） */
 async function fetchWithProgress(url, onProgress){
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 120000);
   let res;
   try{
-    res = await fetch(url, { signal: ctrl.signal });
+    res = await fetch(url, { signal: ctrl.signal, headers: DL_HEADERS });
   }catch(e){
     clearTimeout(timer);
     if(e && e.name === 'AbortError') throw new Error('附件下载超时（超过 120 秒）');
@@ -663,7 +642,6 @@ function invalidateCaches(){
   textCache.clear();
   cacheOrder = [];
 }
-
 /* 密钥不匹配黑名单：密钥对不上的消息持久化记录，之后不再下载解密（换密钥时清空） */
 const LS_BADKEY = 'tieba_badkey_v1';
 let badKeyIds = new Set();
@@ -676,7 +654,6 @@ function clearBadKeys(){
   badKeyIds.clear();
   safeStore.remove(LS_BADKEY);
 }
-
 /* ===== API ===== */
 /* API 请求：25 秒超时，超时/断网给出明确提示，绝不无限挂起 */
 async function apiFetch(url, options){
@@ -704,204 +681,6 @@ async function loadMessages(){
   /* 排序：最新在上（messages[0] 为最新，末尾为最旧） */
   return rows;
 }
-
-/* ===== 自动清理（尽力而为，安全降级） =====
- * 依赖 anon 的 DELETE 权限：
- *  - 未开启 RLS（当前状态）：真实删除最旧消息及其附件，腾空间/控条数；
- *  - 已开启只读安全策略：删除被拒 → 自动降级为"仅显示最近 MAX_MESSAGES 条"。
- * 只删"最旧的消息及其附件"，绝不误伤新数据。
- *
- * v21 增强：
- *  - 行删除改为批量 DELETE（id=in.(...)），一次删多行，不再逐条请求；
- *  - 附件删除失败自动重试一次，删行成功后立即失效桶用量缓存；
- *  - 新增孤儿文件兜底清理：未被任何现存/待删消息引用的桶对象（历史删行成功但删
- *    文件失败的残留、上传中断残留）也会被删除，桶空间真正释放；
- *  - DELETE 请求带 15 秒超时，不挂起；
- *  - 清理互斥锁：refresh / sendMessage 并发触发时只执行一轮。 */
-let cleanPermOK = true;
-let usageCache = { t: 0, usage: 0 };
-let overflowRows = [];   // 超过 MAX_MESSAGES 的最旧消息（待后台删后端：附件 + 行）
-let cleanupLock = false; // 清理互斥锁：防止 refresh/sendMessage 并发重复删
-/* 从存储 URL 提取对象 key（兼容 public / 非 public 两种形式） */
-function urlToKey(u){
-  const m = u.split('/storage/v1/object/')[1];
-  if(!m) return '';
-  const parts = m.split('/');
-  if(parts[0] === 'public') parts.shift();
-  if(parts[0] === BUCKET) parts.shift();
-  return parts.join('/');
-}
-/* 扫描桶内 uploads/ 全部对象（key / size / created_at），失败返回 null */
-async function listBucketObjects(){
-  const objs = [];
-  let offset = 0;
-  try{
-    while(true){
-      const list = await apiFetch(SUPABASE_URL + '/storage/v1/object/list/' + BUCKET, {
-        method: 'POST',
-        headers: AUTH_HEADERS,
-        body: JSON.stringify({ prefix:'uploads', limit:1000, offset })
-      });
-      if(!Array.isArray(list) || list.length === 0) break;
-      for(const o of list){
-        objs.push({
-          key: (o.name || '').replace(/^uploads\//, ''),
-          size: Number(o.metadata && o.metadata.size) || 0,
-          created: o.created_at || ''
-        });
-      }
-      offset += list.length;
-      if(list.length < 1000) break;
-    }
-    return objs;
-  }catch(e){
-    return null; // 扫描失败：降级为不检查空间
-  }
-}
-/* 扫描桶内 uploads/ 全部对象，累加占用字节（5 分钟缓存） */
-async function getBucketUsage(){
-  if(Date.now() - usageCache.t < 300000) return usageCache.usage;
-  const objs = await listBucketObjects();
-  if(!objs) return null;
-  const usage = objs.reduce((s, o) => s + o.size, 0);
-  usageCache = { t: Date.now(), usage };
-  return usage;
-}
-/* DELETE 请求统一封装：15 秒超时；401/403 标记无权限并全局降级 */
-async function delFetch(url){
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 15000);
-  let res;
-  try{
-    res = await fetch(url, { method: 'DELETE', headers: AUTH_HEADERS, signal: ctrl.signal });
-  }catch(e){
-    clearTimeout(timer);
-    return { status: 0 };
-  }
-  clearTimeout(timer);
-  if(res.status === 401 || res.status === 403){ cleanPermOK = false; return { status: res.status }; }
-  return { status: res.status, ok: res.ok };
-}
-async function deleteStorageObject(key){
-  if(!cleanPermOK || !key) return false;
-  let r = await delFetch(SUPABASE_URL + '/storage/v1/object/' + BUCKET + '/' + key);
-  /* 网络/超时失败重试一次；权限失败（r.status 401/403 已置 cleanPermOK=false）不重试 */
-  if(!r.ok && cleanPermOK) r = await delFetch(SUPABASE_URL + '/storage/v1/object/' + BUCKET + '/' + key);
-  return !!(r.ok || r.status === 404);
-}
-async function deleteMessageRow(id){
-  if(!cleanPermOK || !id) return false;
-  const r = await delFetch(SUPABASE_URL + TABLE_PATH + '?id=eq.' + id);
-  return !!r.ok;
-}
-/* 批量删行：一次 DELETE 多行（每批 ≤30），大幅减少请求数 */
-async function deleteMessageRows(ids){
-  if(!cleanPermOK || !ids.length) return false;
-  const r = await delFetch(SUPABASE_URL + TABLE_PATH + '?id=in.(' + ids.join(',') + ')');
-  return !!r.ok;
-}
-/* 删除最旧一条消息及其所有附件；成功返回 true（新排序下最旧在数组末尾） */
-async function removeOldestMessage(){
-  if(!messages.length) return false;
-  const m = messages[messages.length - 1];
-  const urls = parseAttachList(m.file_url);
-  for(const u of urls){
-    const key = urlToKey(u);
-    if(key) await deleteStorageObject(key);
-  }
-  const ok = await deleteMessageRow(m.id);
-  if(ok){
-    messages.pop(); // 新排序：最旧在末尾，删末尾
-    usageCache.t = 0; // 桶用量失效：附件已删，下次重扫才准确
-    revokeAttach(m.id); // 释放该消息已解密的 blob 内存
-    attachCache.delete(m.id);
-    textCache.delete(m.id);
-  }
-  return ok;
-}
-/* 兜底清理孤儿文件：桶里存在、但未被任何"现存消息 + 待删消息"引用的对象
- * （历史删行成功但删文件失败的残留 / 上传中断残留），一次最多删 max 个最旧的 */
-async function removeOrphanFiles(max){
-  if(!cleanPermOK) return false;
-  const objs = await listBucketObjects();
-  if(!objs || !objs.length) return false;
-  const referenced = new Set();
-  const allRows = messages.concat(overflowRows);
-  for(const m of allRows){
-    for(const u of parseAttachList(m.file_url)){
-      const key = urlToKey(u);
-      if(key) referenced.add(key);
-    }
-  }
-  const orphans = objs
-    .filter(o => o.key && !referenced.has(o.key))
-    .sort((a, b) => (a.created < b.created ? -1 : 1))
-    .slice(0, max || 50);
-  let removed = false;
-  for(const o of orphans){
-    if(await deleteStorageObject(o.key)) removed = true;
-  }
-  return removed;
-}
-/* 上传前：估算桶空间，不足则删最旧文件直到能放下；删完消息仍不够则兜底删孤儿；返回是否放得下 */
-async function ensureBucketSpace(need){
-  if(!cleanPermOK) return true;
-  let usage = await getBucketUsage();
-  if(usage === null) return true;
-  let guard = 0;
-  while(usage + need > BUCKET_LIMIT && guard++ < 30){
-    const ok = await removeOldestMessage(); // 优先删带文件的最旧消息（行+附件一起）
-    if(ok){
-      usageCache.t = 0;
-    } else {
-      /* 消息删不动/删完：兜底删孤儿文件（未被任何消息引用的桶对象） */
-      const cleaned = await removeOrphanFiles(50);
-      if(!cleaned) break;
-      usageCache.t = 0;
-    }
-    usage = await getBucketUsage();
-    if(usage === null) return true;
-  }
-  return usage + need <= BUCKET_LIMIT;
-}
-/* 消息数超限时：删除"超出部分"（overflowRows）的后端数据（附件 + 行）。
- * 前端显示层已在 refresh / sendMessage 中立即截断到 MAX_MESSAGES 条。
- * 每轮最多处理 100 条；剩余部分由下一轮刷新时重新识别、继续删除，直至收敛。 */
-async function cleanupMessages(){
-  if(cleanupLock || !overflowRows.length) return;
-  cleanupLock = true;
-  try{
-    const targets = overflowRows.splice(0, 100);
-    const ids = targets.map(m => m.id);
-    /* 1. 删附件（失败自动重试一次；仍失败则交给 removeOrphanFiles 兜底） */
-    for(const m of targets){
-      for(const u of parseAttachList(m.file_url)){
-        const key = urlToKey(u);
-        if(key) await deleteStorageObject(key);
-      }
-    }
-    /* 2. 批量删行；批量失败（非权限问题）降级逐条删 */
-    let ok = await deleteMessageRows(ids);
-    if(!ok && cleanPermOK && ids.length){
-      ok = true; // 逐条删：默认成功，任一条失败才置 false
-      for(const id of ids){
-        const r = await deleteMessageRow(id);
-        if(!r && cleanPermOK){ ok = false; break; }
-      }
-    }
-    if(ok){
-      usageCache.t = 0; // 附件已删：桶用量失效，下次重扫
-      for(const id of ids){
-        revokeAttach(id); // 释放该消息已解密的 blob 内存，前端附件彻底清除
-        attachCache.delete(id);
-        textCache.delete(id);
-      }
-    }
-  } finally {
-    cleanupLock = false;
-  }
-}
-
 /* ===== 渲染 ===== */
 const FILE_ICONS = {
   pdf:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>',
@@ -941,7 +720,7 @@ async function downloadDecrypted(name, url){
         const buf = await decryptFileBlob(url);
         blob = new Blob([buf], { type: 'application/octet-stream' });
       } else {
-        blob = await (await fetch(url)).blob();
+        blob = await (await fetch(url, { headers: DL_HEADERS })).blob();
       }
     }
   }catch(e){ blob = null; }
@@ -976,7 +755,6 @@ async function downloadDecrypted(name, url){
   a.click();
   setTimeout(() => { URL.revokeObjectURL(objUrl); a.remove(); }, 5000);
 }
-
 /* ===== 媒体放大浮层（图片灯箱 / 视频全屏播放，自带退出键；自动横竖屏 + 全屏铺满） ===== */
 let activeOverlay = null;
 function ovIcon(name){
@@ -1123,7 +901,6 @@ function closeMediaOverlay(skipPause){
   document.body.classList.remove('ov-open');
 }
 document.addEventListener('keydown', e => { if(e.key === 'Escape') closeMediaOverlay(); });
-
 /* 附件渲染（支持加密文件：下载→解密→blob 预览） */
 function renderDirectFile(container, f){
   if(f.kind === 'image'){
@@ -1360,7 +1137,6 @@ const attachIO = ('IntersectionObserver' in window)
       });
     }, { rootMargin: '240px' })
   : null;
-
 /* 消息卡片：先骨架，再异步解密填充（解密结果缓存，刷新不重复解密） */
 async function fillCard(card, row){
   let nickText, contentText = '', contentState = 'none';
@@ -1483,7 +1259,6 @@ function renderFeed(scrollBottom){
   feedEl.appendChild(frag);
   if(scrollBottom) window.scrollTo({ top: 0, behavior: 'smooth' }); // 最新在上：发送后回到顶部
 }
-
 /* ===== Toast ===== */
 let toastTimer = null;
 function toast(msg, isErr){
@@ -1493,7 +1268,6 @@ function toast(msg, isErr){
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toastEl.hidden = true; }, 3200);
 }
-
 /* ===== 附件管理 ===== */
 function pendingTotalSize(){
   return pendingFiles.reduce((s, it) => s + (it.file.size || 0), 0);
@@ -1547,7 +1321,6 @@ function addFiles(fileList){
   }
   updateAttachPreview();
 }
-
 /* ===== 上传 & 发送（全程加密） ===== */
 /* Supabase Storage 拒绝含中文/非 ASCII 字符的对象 key（报 Invalid key）。
  * 照片视频默认英文名能传，中文名文件（如"测试文件.txt"）上传必失败。
@@ -1580,11 +1353,14 @@ async function uploadFile(blob, name){
   if(!res.ok){
     let msg = '文件上传失败（' + res.status + '）';
     try{ const j = await res.json(); if(j.message) msg = '文件上传失败：' + j.message; }catch(e){}
+    /* 存储空间已满等常见错误给友好中文提示（超容后由后端定时任务清理释放） */
+    if(/storage limit|quota|capacity|空间|storage/i.test(msg) || res.status === 400 || res.status === 413){
+      msg = '存储空间已满或文件过大，稍后系统会自动清理旧附件，请稍后再试';
+    }
     throw new Error(msg);
   }
   return SUPABASE_URL + '/storage/v1/object/' + BUCKET + '/' + path;
 }
-
 async function sendMessage(){
   if(busy) return;
   const content = msgInput.value.trim();
@@ -1605,15 +1381,6 @@ async function sendMessage(){
   sendBtn.disabled = true;
   sendBtn.textContent = '加密发送中…';
   try{
-    /* 上传前：若带附件，估算桶空间，不足则自动删最旧文件腾空间 */
-    if(pendingFiles.length){
-      const need = pendingTotalSize();
-      const enough = await ensureBucketSpace(need);
-      if(!enough){
-        toast('存储空间不足：已尝试清理旧文件仍放不下，请手动清理或扩容', true);
-        return;
-      }
-    }
     const uploaded = [];
     for(const item of pendingFiles){
       try{
@@ -1640,22 +1407,15 @@ async function sendMessage(){
     });
     if(Array.isArray(created) && created.length){
       messages.unshift(created[0]); // 新排序：最新消息插到顶部
-      if(messages.length > MAX_MESSAGES){
-        /* 发送后超限：立即截断显示 + 后台删后端（附件 + 行） */
-        overflowRows = messages.splice(MAX_MESSAGES);
-        renderFeed(true);
-        cleanupMessages();
-      } else {
-        renderFeed(true);
-      }
+      /* 仅前端截断显示（超出部分等后端定时任务清理，前端不再发删除请求） */
+      messages = messages.slice(0, MAX_MESSAGES);
+      renderFeed(true);
     } else {
       await refresh(false);
     }
     msgInput.value = ''; autoGrow();
     pendingFiles = []; updateAttachPreview();
     saveNick();
-    /* 发送成功后：消息数超限则清理最旧（尽力而为） */
-    cleanupMessages();
   } catch(e){
     toast(e.message, true);
   } finally {
@@ -1664,25 +1424,17 @@ async function sendMessage(){
     sendBtn.textContent = '发送';
   }
 }
-
 /* ===== 刷新 & 轮询 ===== */
 let connRetryTimer = null;
 async function refresh(manual){
   try{
     const rows = await loadMessages();
     const had = messages.length;
-    if(rows.length > MAX_MESSAGES){
-      /* 超限：立即截断显示（只渲染最新 MAX_MESSAGES 条，无 200→100 闪动），
-         超出部分记入 overflowRows，后台删后端（附件 + 行） */
-      overflowRows = rows.slice(MAX_MESSAGES);
-      messages = rows.slice(0, MAX_MESSAGES);
-    } else {
-      overflowRows = [];
-      messages = rows;
-    }
+    /* 仅前端截断显示：最多展示 MAX_MESSAGES 条最新消息；
+       后端超限旧消息与附件由 Edge Function「super-processor」定时清理，前端不再删除 */
+    messages = rows.slice(0, MAX_MESSAGES);
     renderFeed(manual && had === 0);
     setConn(true);
-    if(overflowRows.length) cleanupMessages(); // 后台尽力删后端（互斥锁防并发）
   }catch(e){
     setConn(false, e.message);
     if(manual) toast(e.message, true);
@@ -1706,7 +1458,6 @@ function autoGrow(){
   msgInput.style.height = 'auto';
   msgInput.style.height = Math.min(msgInput.scrollHeight, 130) + 'px';
 }
-
 /* ===== 事件 ===== */
 /* 媒体互斥：同一时间只允许一个视频/音频播放，新的开始播放时自动暂停其它所有媒体 */
 document.addEventListener('play', e => {
@@ -1731,7 +1482,6 @@ $('refreshBtn').addEventListener('click', () => {
 });
 nickInput.addEventListener('change', saveNick);
 nickInput.addEventListener('blur', () => { if(!nickInput.value.trim()) nickInput.value = '匿名'; });
-
 /* 密钥面板 */
 keyBtn.addEventListener('click', e => {
   e.stopPropagation();
@@ -1759,14 +1509,12 @@ keyClear.addEventListener('click', () => {
   keyPanel.hidden = true;
   toast('已清除密钥，仅可查看历史明文消息');
 });
-
 /* 拖拽上传（可选增强） */
 document.addEventListener('dragover', e => e.preventDefault());
 document.addEventListener('drop', e => {
   e.preventDefault();
   if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
 });
-
 /* ===== 输入法面板适配 ===== */
 /* 输入法弹起时，视觉视口缩小，把输入栏整体抬到键盘上方（visualViewport 方案，兼容 iOS/微信/安卓） */
 function fitComposer(){
@@ -1783,7 +1531,6 @@ if(window.visualViewport){
 }
 window.addEventListener('resize', fitComposer);
 fitComposer();
-
 /* ===== 初始化 ===== */
 /* 初始化：try-catch 保护，任何单点错误都不影响页面交互（密钥按钮始终可点） */
 try{
