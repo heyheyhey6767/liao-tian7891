@@ -1,13 +1,16 @@
 name: clean task
 on:
+  workflow_dispatch:
   schedule:
     - cron: '*/10 * * * *'
-  workflow_dispatch:
-
 jobs:
-  call_clean:
+  call-clean:
     runs-on: ubuntu-latest
     steps:
-      - name: call api
+      - name: 调用清理接口
         run: |
-          curl -X POST "${{ secrets.FUNC_URL }}" -H "Authorization: ${{ secrets.FUNC_AUTH }}"
+          code=$(curl -s -o /tmp/out.txt -w "%{http_code}" -X POST "${{ secrets.FUNC_URL }}" \
+            -H "Authorization: Bearer ${{ secrets.FUNC_AUTH }}")
+          echo "HTTP $code"
+          cat /tmp/out.txt
+          if [ "$code" != "200" ]; then exit 1; fi
